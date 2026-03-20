@@ -3,6 +3,12 @@ import { Send, Sparkles, Check, X, WifiOff } from 'lucide-react';
 import { useAgentStore } from '@/store/agentStore';
 import { streamChat, checkHealth, type ChatRequest } from '@/lib/api';
 
+/** Strip [LEARNINGS] block and everything after it from displayed text */
+function stripLearnings(text: string): string {
+  const idx = text.indexOf('[LEARNINGS]');
+  return idx === -1 ? text : text.slice(0, idx).trimEnd();
+}
+
 export function ChatView() {
   const {
     messages, isThinking, addMessage, setThinking,
