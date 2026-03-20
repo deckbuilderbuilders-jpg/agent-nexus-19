@@ -553,16 +553,22 @@ def execute_skill(name: str, params: dict) -> dict:
 
 @app.get("/api/health")
 async def health():
+    ollama_ok = False
+    mem_count = 0
     try:
         ollama.list()
         ollama_ok = True
-    except:
-        ollama_ok = False
+    except Exception:
+        pass
+    try:
+        mem_count = state.collection.count()
+    except Exception:
+        pass
 
     return {
         "ok": ollama_ok,
         "model": state.model,
-        "memory_count": state.collection.count(),
+        "memory_count": mem_count,
         "ollama_connected": ollama_ok,
         "skills_count": len(state.skills),
     }
