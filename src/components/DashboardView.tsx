@@ -1,4 +1,4 @@
-import { Database, Shield, Wrench, ArrowRight } from 'lucide-react';
+import { Database, Shield, Wrench, ArrowRight, Brain, Zap } from 'lucide-react';
 import { useAgentStore } from '@/store/agentStore';
 
 export function DashboardView() {
@@ -20,8 +20,8 @@ export function DashboardView() {
           🧠
         </div>
         <div>
-          <h1 className="font-display text-base font-bold text-foreground leading-tight">Neural Agent v4</h1>
-          <p className="text-[9px] text-muted-foreground">Self-improving marketing & bizdev assistant</p>
+          <h1 className="font-display text-base font-bold text-foreground leading-tight">Neural Agent v5</h1>
+          <p className="text-[9px] text-muted-foreground">Learns · Remembers · Acts — your local AI second brain</p>
         </div>
         <div className="ml-auto flex items-center gap-[5px] text-[10px] text-primary">
           <div className="status-dot" />
@@ -46,8 +46,29 @@ export function DashboardView() {
           ))}
         </div>
 
+        {/* v5 capabilities */}
+        <div className="bg-card border border-border rounded-[10px] p-4 shadow-soft animate-fade-up" style={{ animationDelay: '40ms' }}>
+          <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">v5 Capabilities</span>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            {[
+              { icon: <Brain className="w-3.5 h-3.5" />, label: 'Silent Learning', desc: 'Auto-extracts facts from conversations' },
+              { icon: <Zap className="w-3.5 h-3.5" />, label: 'Semantic RAG', desc: 'Finds relevant memories, not just recent ones' },
+              { icon: <Wrench className="w-3.5 h-3.5" />, label: 'Skill Execution', desc: 'Runs tools: search, read/write files' },
+              { icon: <Shield className="w-3.5 h-3.5" />, label: 'Memory Lifecycle', desc: 'Decay, dedup, and smart pruning' },
+            ].map(cap => (
+              <div key={cap.label} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/50">
+                <div className="text-primary mt-0.5">{cap.icon}</div>
+                <div>
+                  <div className="text-[10px] font-display font-bold text-foreground">{cap.label}</div>
+                  <div className="text-[9px] text-muted-foreground leading-snug">{cap.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Profile progress */}
-        <div className="bg-card border border-border rounded-[10px] p-4 shadow-soft animate-fade-up" style={{ animationDelay: '60ms' }}>
+        <div className="bg-card border border-border rounded-[10px] p-4 shadow-soft animate-fade-up" style={{ animationDelay: '80ms' }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Profile Completeness</span>
             <span className="text-[10px] font-mono text-primary">{Math.round((profileFilled / 12) * 100)}%</span>
@@ -82,7 +103,7 @@ export function DashboardView() {
                 <Wrench className="w-3 h-3" /> Skills
               </div>
               <p className="text-[9px] text-muted-foreground leading-[1.5]">
-                Executable capabilities. Drop a .py file, restart, done.
+                Executable capabilities. Web search, file I/O, and more.
               </p>
             </div>
             <div>
@@ -90,7 +111,7 @@ export function DashboardView() {
                 <Database className="w-3 h-3" /> Memory
               </div>
               <p className="text-[9px] text-muted-foreground leading-[1.5]">
-                Profile + episodes + facts. All learning is opt-in.
+                Semantic RAG with decay + dedup. Gets smarter over time.
               </p>
             </div>
           </div>
@@ -98,7 +119,7 @@ export function DashboardView() {
 
         {/* Recent knowledge */}
         {memories.length > 0 && (
-          <div className="animate-fade-up" style={{ animationDelay: '180ms' }}>
+          <div className="animate-fade-up" style={{ animationDelay: '160ms' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Recent Knowledge</span>
               <button onClick={() => setActiveView('memory')} className="text-[9px] text-primary hover:underline flex items-center gap-0.5">

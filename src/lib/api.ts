@@ -23,6 +23,7 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T | null> 
 
 export interface ChatRequest {
   message: string;
+  history: { role: string; content: string }[];
   memories: { text: string; type: string; weight: number }[];
   rules: string[];
   profile: Record<string, unknown>;
@@ -32,6 +33,10 @@ export interface ChatRequest {
 export interface ChatStreamCallbacks {
   onToken: (token: string) => void;
   onLearnings: (learnings: { facts: string[]; profileUpdates: Record<string, string> }) => void;
+  onToolCall: (call: { skill: string; params: Record<string, unknown> }) => void;
+  onToolResult: (result: { skill: string; success: boolean; output?: string; error?: string }) => void;
+  onAutoLearned: (count: number) => void;
+  onPlanStep: (step: { step: number; total: number; description: string; status: string }) => void;
   onDone: () => void;
   onError: (error: string) => void;
 }
@@ -70,6 +75,10 @@ export async function streamChat(req: ChatRequest, cb: ChatStreamCallbacks): Pro
           const evt = JSON.parse(payload);
           if (evt.token) cb.onToken(evt.token);
           if (evt.learnings) cb.onLearnings(evt.learnings);
+          if (evt.tool_call) cb.onToolCall(evt.tool_call);
+          if (evt.tool_result) cb.onToolResult(evt.tool_result);
+          if (evt.auto_learned) cb.onAutoLearned(evt.auto_learned);
+          if (evt.plan_step) cb.onPlanStep(evt.plan_step);
           if (evt.error) cb.onError(evt.error);
         } catch { /* partial JSON, skip */ }
       }
@@ -100,6 +109,7 @@ export interface PerfStatsResponse {
   total_tokens: number;
   model: string;
   generating: boolean;
+  token_budget?: Record<string, number>;
 }
 
 export async function fetchStats(): Promise<PerfStatsResponse | null> {
@@ -114,6 +124,16 @@ export async function syncMemories(memories: { text: string; type: string; weigh
 
 export async function getMemories() {
   return apiFetch<{ text: string; type: string; weight: number; timestamp: string; source?: string }[]>('/memories');
+}
+
+// ── Skills ───────────────────────────────────────────────────
+
+export async function getSkills() {
+  return apiFetch<{ name: string; description: string; schema: Record<string, string>; enabled: boolean }[]>('/skills');
+}
+
+export async function toggleSkill(name: string, enabled: boolean) {
+  return apiFetch(`/skills/${name}/toggle`, { method: 'POST', body: JSON.stringify({ enabled }) });
 }
 
 // ── Rules ────────────────────────────────────────────────────

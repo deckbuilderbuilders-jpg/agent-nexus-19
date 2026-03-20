@@ -6,7 +6,9 @@ import { ProfileEditor } from '@/components/ProfileEditor';
 import { SkillsOverview } from '@/components/SkillsOverview';
 import { DashboardView } from '@/components/DashboardView';
 import { PerformanceHUD } from '@/components/PerformanceHUD';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useAgentStore } from '@/store/agentStore';
+import { useAutoSync } from '@/hooks/useAutoSync';
 
 const VIEWS = {
   dashboard: DashboardView,
@@ -21,10 +23,15 @@ const Index = () => {
   const activeView = useAgentStore((s) => s.activeView);
   const ActiveComponent = VIEWS[activeView];
 
+  // Auto-sync state to backend when online
+  useAutoSync();
+
   return (
     <div className="h-screen grid overflow-hidden" style={{ gridTemplateColumns: '1fr 310px' }}>
       <main className="overflow-hidden relative">
-        <ActiveComponent />
+        <ErrorBoundary fallbackMessage={`Error in ${activeView} view`}>
+          <ActiveComponent />
+        </ErrorBoundary>
       </main>
       <AppSidebar />
       <PerformanceHUD />

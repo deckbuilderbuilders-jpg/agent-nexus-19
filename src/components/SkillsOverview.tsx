@@ -1,8 +1,41 @@
-import { Lock, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Lock, Check, Power, RefreshCw } from 'lucide-react';
 import { useAgentStore } from '@/store/agentStore';
+import { getSkills, toggleSkill, checkHealth } from '@/lib/api';
 
 export function SkillsOverview() {
-  const skills = useAgentStore((s) => s.skills);
+  const storeSkills = useAgentStore((s) => s.skills);
+  const [skills, setSkills] = useState(storeSkills);
+  const [online, setOnline] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Try to fetch live skills from backend
+  useEffect(() => {
+    checkHealth().then(h => {
+      const isOnline = h?.ok ?? false;
+      setOnline(isOnline);
+      if (isOnline) {
+        getSkills().then(s => { if (s) setSkills(s.map(sk => ({ ...sk, requires_credentials: [], schema: sk.schema || {} }))); });
+      }
+    });
+  }, []);
+
+  const handleToggle = async (name: string, currentEnabled: boolean) => {
+    if (!online) return;
+    setLoading(true);
+    const result = await toggleSkill(name, !currentEnabled);
+    if (result) {
+      setSkills(prev => prev.map(s => s.name === name ? { ...s, enabled: !currentEnabled } : s));
+    }
+    setLoading(false);
+  };
+
+  const refreshSkills = async () => {
+    setLoading(true);
+    const s = await getSkills();
+    if (s) setSkills(s.map(sk => ({ ...sk, requires_credentials: [], schema: sk.schema || {} })));
+    setLoading(false);
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -11,6 +44,14 @@ export function SkillsOverview() {
         <span className="text-[9px] text-muted-foreground ml-1">
           {skills.filter(s => s.enabled).length} active · {skills.filter(s => !s.enabled).length} available
         </span>
+        <div className="flex-1" />
+        {online && (
+          <button onClick={refreshSkills} disabled={loading}
+            className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors active:scale-90 disabled:opacity-30">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        )}
+        <div className={`w-[6px] h-[6px] rounded-full ${online ? 'bg-primary' : 'bg-gray-400'}`} />
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2.5 bg-background">
@@ -29,8 +70,19 @@ export function SkillsOverview() {
                 </span>
               ) : (
                 <span className="flex items-center gap-1 px-[6px] py-[2px] text-[8px] rounded bg-secondary text-muted-foreground font-semibold uppercase tracking-[0.5px]">
-                  <Lock className="w-[9px] h-[9px]" /> Needs setup
+                  <Lock className="w-[9px] h-[9px]" /> Inactive
                 </span>
+              )}
+              {online && (
+                <button
+                  onClick={() => handleToggle(skill.name, skill.enabled)}
+                  disabled={loading}
+                  className={`ml-auto p-1 rounded transition-all active:scale-90 ${
+                    skill.enabled ? 'text-primary hover:text-primary/70' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Power className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
 
@@ -66,7 +118,7 @@ export function SkillsOverview() {
 
         <div className="border border-dashed border-border rounded-[10px] p-5 text-center animate-fade-up" style={{ animationDelay: `${skills.length * 40}ms` }}>
           <p className="text-[10px] text-muted-foreground">
-            Drop a <span className="font-mono text-primary">.py</span> file in <span className="font-mono text-primary">skills/</span> implementing the <span className="font-mono text-primary">Skill</span> base class → auto-discovered on restart.
+            Drop a <span className="font-mono text-primary">.py</span> file in <span className="font-mono text-primary">backend/skills/</span> implementing the <span className="font-mono text-primary">Skill</span> base class → auto-discovered on restart.
           </p>
         </div>
       </div>
