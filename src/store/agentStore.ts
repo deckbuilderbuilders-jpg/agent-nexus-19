@@ -149,6 +149,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   topicRelationships: [],
   setTopicRelationships: (rels) => set({ topicRelationships: rels }),
 
+  rules: DEMO_RULES,
+
   addRule: (rule) => set((s) => ({ rules: [{ ...rule, id: genId() }, ...s.rules] })),
   removeRule: (id) => set((s) => ({ rules: s.rules.filter((r) => r.id !== id) })),
 
