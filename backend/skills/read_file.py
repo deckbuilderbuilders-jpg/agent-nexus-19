@@ -1,12 +1,15 @@
 """
 Read File skill — reads a local file for analysis.
-Restricted to the neural-agent data directory for safety.
+Restricted to the Nexus data directory for safety.
 """
 
 import os
 from pathlib import Path
 
-DATA_DIR = Path(os.environ.get("NEURAL_DATA_DIR", os.path.expanduser("~/neural-agent")))
+DATA_DIR = Path(
+    os.environ.get("NEXUS_DATA_DIR")
+    or os.environ.get("NEURAL_DATA_DIR", os.path.expanduser("~/Nexus"))
+)
 
 SKILL_INFO = {
     "name": "read_file",
