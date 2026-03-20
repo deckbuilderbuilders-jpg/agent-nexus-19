@@ -21,11 +21,11 @@ const Index = () => {
   const ActiveComponent = VIEWS[activeView];
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <AppSidebar />
-      <main className="flex-1 overflow-hidden">
+    <div className="h-screen grid overflow-hidden" style={{ gridTemplateColumns: '1fr 310px' }}>
+      <main className="overflow-hidden relative">
         <ActiveComponent />
       </main>
+      <AppSidebar />
     </div>
   );
 };

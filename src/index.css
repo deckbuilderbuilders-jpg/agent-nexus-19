@@ -2,61 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap');
 
 @layer base {
   :root {
-    --background: 220 16% 6%;
-    --foreground: 210 20% 92%;
+    --background: 40 20% 97%;
+    --foreground: 0 0% 10%;
 
-    --card: 220 14% 10%;
-    --card-foreground: 210 20% 92%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
 
-    --popover: 220 14% 10%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
 
-    --primary: 38 92% 55%;
-    --primary-foreground: 220 16% 6%;
+    --primary: 163 83% 31%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 12% 16%;
-    --secondary-foreground: 210 15% 75%;
+    --secondary: 38 15% 93%;
+    --secondary-foreground: 0 0% 33%;
 
-    --muted: 220 12% 14%;
-    --muted-foreground: 215 12% 50%;
+    --muted: 38 15% 93%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 38 92% 55%;
-    --accent-foreground: 220 16% 6%;
+    --accent: 163 83% 31%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 12% 18%;
-    --input: 220 12% 18%;
-    --ring: 38 92% 55%;
+    --border: 43 10% 87%;
+    --input: 43 10% 87%;
+    --ring: 163 83% 31%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 220 16% 8%;
-    --sidebar-foreground: 210 15% 75%;
-    --sidebar-primary: 38 92% 55%;
-    --sidebar-primary-foreground: 220 16% 6%;
-    --sidebar-accent: 220 12% 14%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 12% 15%;
-    --sidebar-ring: 38 92% 55%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 33%;
+    --sidebar-primary: 163 83% 31%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 38 15% 93%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 43 10% 87%;
+    --sidebar-ring: 163 83% 31%;
 
-    /* Custom tokens */
-    --surface-elevated: 220 14% 12%;
-    --surface-hover: 220 12% 16%;
-    --success: 152 60% 45%;
-    --success-foreground: 152 60% 92%;
-    --warning: 38 92% 55%;
-    --warning-foreground: 38 92% 12%;
-    --info: 210 70% 55%;
-    --info-foreground: 210 70% 92%;
+    /* Custom */
+    --accent-light: 163 83% 31% / 0.08;
+    --accent-mid: 163 83% 31% / 0.25;
+    --warning: 38 92% 50%;
+    --info: 217 91% 60%;
+    --success: 163 83% 31%;
+    --text-mid: 0 0% 33%;
+    --text-dim: 0 0% 60%;
+    --border-strong: 40 6% 78%;
 
-    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-display: 'Syne', sans-serif;
   }
 }
 
@@ -67,71 +67,89 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
+    font-size: 13px;
   }
 
-  /* Scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.3);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
-  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(var(--border-strong)); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
 }
 
 @layer utilities {
-  .text-mono {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono {
     font-family: var(--font-mono);
   }
 
-  .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.15), 0 0 40px hsl(var(--primary) / 0.05);
+  .accent-glow {
+    box-shadow: 0 2px 8px hsl(163 83% 31% / 0.25);
   }
 
-  .glow-primary-sm {
-    box-shadow: 0 0 8px hsl(var(--primary) / 0.2);
+  .accent-glow-lg {
+    box-shadow: 0 4px 14px hsl(163 83% 31% / 0.3);
   }
 
-  .surface-elevated {
-    background-color: hsl(var(--surface-elevated));
+  .shadow-soft {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .shadow-mid {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .animate-msg-in {
+    animation: msgIn 0.3s ease-out both;
   }
 
   .animate-fade-up {
-    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   .animate-fade-in {
-    animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: fadeIn 0.3s ease-out both;
   }
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; filter: blur(4px); }
-  to { opacity: 1; filter: blur(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 8px hsl(var(--primary) / 0.2); }
-  50% { box-shadow: 0 0 16px hsl(var(--primary) / 0.4); }
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px hsl(163 83% 31% / 0.4); }
+  50% { opacity: 0.4; }
 }
+
+@keyframes bounce-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: hsl(var(--primary));
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.typing-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: hsl(var(--primary));
+  animation: bounce-dot 1.4s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }

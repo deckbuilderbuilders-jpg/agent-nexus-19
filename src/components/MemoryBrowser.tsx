@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Database, Search, Trash2, Plus, Brain, Clock, BookOpen } from 'lucide-react';
-import { useAgentStore, type Memory } from '@/store/agentStore';
+import { Search, Trash2, Plus, Brain, Clock, BookOpen } from 'lucide-react';
+import { useAgentStore } from '@/store/agentStore';
 
-const TYPE_LABELS: Record<string, { label: string; icon: typeof Brain; color: string }> = {
-  fact: { label: 'Fact', icon: Brain, color: 'text-info' },
-  episode: { label: 'Episode', icon: Clock, color: 'text-success' },
-  skill_chunk: { label: 'Skill', icon: BookOpen, color: 'text-warning' },
+const TYPE_META: Record<string, { label: string; icon: typeof Brain; border: string }> = {
+  fact: { label: 'Fact', icon: Brain, border: 'border-l-primary' },
+  episode: { label: 'Episode', icon: Clock, border: 'border-l-blue-500' },
+  skill_chunk: { label: 'Skill', icon: BookOpen, border: 'border-l-amber-500' },
 };
 
 export function MemoryBrowser() {
@@ -26,91 +26,90 @@ export function MemoryBrowser() {
   };
 
   return (
-    <div className="h-full flex flex-col p-6">
-      <div className="flex items-center justify-between mb-6 animate-fade-up">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-            <Database className="w-5 h-5 text-info" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">Memory</h2>
-            <p className="text-xs text-muted-foreground">{memories.length} items stored</p>
-          </div>
+    <div className="h-full flex flex-col">
+      {/* Toolbar matching original memory-toolbar */}
+      <div className="px-4 py-2.5 border-b border-border bg-card shadow-soft flex items-center gap-2 shrink-0">
+        <h2 className="font-display text-[13px] font-bold text-foreground">🗺 Memory Browser</h2>
+        <div className="flex-1" />
+        <div className="flex gap-1">
+          {['All', 'Facts', 'Episodes', 'Skills'].map((label) => {
+            const type = label === 'All' ? null : label === 'Facts' ? 'fact' : label === 'Episodes' ? 'episode' : 'skill_chunk';
+            const active = filter === type;
+            return (
+              <button
+                key={label}
+                onClick={() => setFilter(type)}
+                className={`px-2.5 py-[5px] rounded-[6px] border text-[9px] uppercase tracking-[0.8px] transition-all
+                  ${active
+                    ? 'border-primary text-primary bg-primary/[0.08]'
+                    : 'border-border text-muted-foreground bg-card hover:border-[hsl(var(--border-strong))] hover:text-foreground hover:bg-secondary'
+                  }`}
+              >{label}</button>
+            );
+          })}
         </div>
-      </div>
-
-      {/* Search + filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4 animate-fade-up" style={{ animationDelay: '60ms' }}>
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search memories..."
-            className="w-full bg-card border border-border rounded-lg pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-          />
-        </div>
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => setFilter(null)}
-            className={`px-3 py-1.5 text-xs rounded-md transition-all ${!filter ? 'bg-primary text-primary-foreground' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}
-          >All</button>
-          {Object.entries(TYPE_LABELS).map(([type, { label }]) => (
-            <button
-              key={type}
-              onClick={() => setFilter(filter === type ? null : type)}
-              className={`px-3 py-1.5 text-xs rounded-md transition-all ${filter === type ? 'bg-primary text-primary-foreground' : 'bg-card border border-border text-muted-foreground hover:text-foreground'}`}
-            >{label}</button>
-          ))}
-        </div>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search..."
+          className="w-[180px] px-3 py-1.5 rounded-[6px] border border-border bg-background text-[10px] text-foreground
+            placeholder:text-muted-foreground outline-none focus:border-primary"
+        />
       </div>
 
       {/* Add fact */}
-      <div className="flex gap-2 mb-4 animate-fade-up" style={{ animationDelay: '90ms' }}>
+      <div className="px-4 py-2 border-b border-border bg-card flex gap-2">
         <input
           value={newFact}
           onChange={(e) => setNewFact(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
           placeholder="Add a fact manually..."
-          className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+          className="flex-1 bg-background border border-border rounded-[8px] px-3 py-2 text-[11px]
+            placeholder:text-muted-foreground outline-none focus:border-primary focus:shadow-[0_0_0_3px_hsl(163_83%_31%/0.08)]"
         />
         <button
           onClick={handleAdd}
           disabled={!newFact.trim()}
-          className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-30 hover:brightness-110 active:scale-95 transition-all"
+          className="px-3 py-2 rounded-[8px] bg-primary text-primary-foreground text-[10px] font-semibold
+            disabled:opacity-30 hover:brightness-105 active:scale-[0.97] transition-all"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Memory list */}
-      <div className="flex-1 overflow-y-auto space-y-2">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-[6px] bg-background">
         {filtered.map((mem, i) => {
-          const typeInfo = TYPE_LABELS[mem.type] || TYPE_LABELS.fact;
-          const Icon = typeInfo.icon;
+          const meta = TYPE_META[mem.type] || TYPE_META.fact;
+          const ageColor = mem.weight > 4 ? 'bg-primary shadow-[0_0_5px_hsl(163_83%_31%/0.5)]'
+            : mem.weight > 3 ? 'bg-blue-500'
+            : mem.weight > 2 ? 'bg-amber-500'
+            : 'bg-gray-400';
+
           return (
             <div
               key={mem.id}
-              className="group bg-card border border-border rounded-lg p-3 hover:border-primary/20 transition-all animate-fade-up"
-              style={{ animationDelay: `${120 + i * 40}ms` }}
+              className={`group bg-secondary border-l-[3px] ${meta.border} rounded-[7px] px-[9px] py-[6px] 
+                hover:bg-[#e8e5de] transition-all cursor-pointer animate-fade-up`}
+              style={{ animationDelay: `${i * 20}ms` }}
             >
-              <div className="flex items-start gap-3">
-                <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${typeInfo.color}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground leading-relaxed">{mem.text}</p>
-                  <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-muted-foreground">
-                    <span className={typeInfo.color}>{typeInfo.label}</span>
-                    <span>weight: {mem.weight.toFixed(1)}</span>
-                    <span>{mem.timestamp.slice(0, 10)}</span>
-                    {mem.source && <span>via {mem.source}</span>}
-                  </div>
+              <div className="text-[10px] leading-[1.5] text-foreground">{mem.text}</div>
+              <div className="flex items-center gap-[5px] mt-[3px] text-[7px] uppercase tracking-[0.5px] text-muted-foreground">
+                <div className={`w-[5px] h-[5px] rounded-full ${ageColor}`} />
+                <span>{meta.label}</span>
+                <span>·</span>
+                <span>w:{mem.weight.toFixed(1)}</span>
+                <span>·</span>
+                <span>{mem.timestamp.slice(0, 10)}</span>
+                {mem.source && <><span>·</span><span>{mem.source}</span></>}
+                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); removeMemory(mem.id); }}
+                    className="p-0.5 rounded hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="w-[9px] h-[9px]" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => removeMemory(mem.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 hover:text-destructive transition-all"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
               </div>
             </div>
           );
