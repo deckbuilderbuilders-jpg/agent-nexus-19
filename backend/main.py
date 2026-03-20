@@ -164,8 +164,9 @@ def extract_explicit_profile_updates(message: str, current_profile: Optional[dic
 
     explicit_patterns = {
         "name": [
-            r"\bmy name is\s+([A-Za-z][A-Za-z' -]{0,40})\b",
-            r"\bcall me\s+([A-Za-z][A-Za-z' -]{0,40})\b",
+            r"\bmy name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+            r"\bcall me\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+            r"\bi'm\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
         ],
         "role": [
             r"\bi work as\s+(?:an?\s+)?([A-Za-z][A-Za-z0-9 /&-]{1,50})\b",
