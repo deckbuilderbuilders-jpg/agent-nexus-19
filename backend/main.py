@@ -530,7 +530,7 @@ User message: {user_message}"""
 
 # ── Silent Learning ──────────────────────────────────────────
 
-def run_silent_learning(user_message: str, assistant_response: str, existing_context: str) -> int:
+def run_silent_learning(user_message: str, assistant_response: str, existing_context: str) -> list[str]:
     try:
         prompt = f"""Extract any NEW facts about the user, their business, preferences, workflows, or goals from this conversation that are NOT already known.
 
@@ -556,7 +556,7 @@ Return ONLY the JSON array, nothing else."""
         if match:
             facts = json.loads(fix_json(match.group(0)))
             if isinstance(facts, list) and facts:
-                count = 0
+                saved_facts = []
                 for fact in facts[:5]:
                     if isinstance(fact, str) and len(fact) > 10:
                         deduplicate_and_add(fact, {
@@ -565,11 +565,11 @@ Return ONLY the JSON array, nothing else."""
                             "source": "auto",
                             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
                         })
-                        count += 1
-                return count
+                        saved_facts.append(fact)
+                return saved_facts
     except Exception as e:
         logger.warning(f"Silent learning failed: {e}")
-    return 0
+    return []
 
 
 # ── Skill Execution ──────────────────────────────────────────
