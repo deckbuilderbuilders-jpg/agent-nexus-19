@@ -27,9 +27,9 @@ export function ProfileEditor() {
     if (Array.isArray(val)) {
       setEditValue(val.join(', '));
     } else if (typeof val === 'object' && val !== null) {
-      setEditValue(Object.entries(val).map(([k, v]) => `${k}: ${v}`).join(', '));
+      setEditValue(Object.entries(val as Record<string, string>).map(([k, v]) => `${k}: ${v}`).join(', '));
     } else {
-      setEditValue(val || '');
+      setEditValue((val as string) || '');
     }
     setEditField(field);
   };
