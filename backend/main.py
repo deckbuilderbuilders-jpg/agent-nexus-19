@@ -164,8 +164,9 @@ def extract_explicit_profile_updates(message: str, current_profile: Optional[dic
 
     explicit_patterns = {
         "name": [
-            r"\bmy name is\s+([A-Za-z][A-Za-z' -]{0,40})\b",
-            r"\bcall me\s+([A-Za-z][A-Za-z' -]{0,40})\b",
+            r"\bmy name is\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+            r"\bcall me\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+            r"\bi'm\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
         ],
         "role": [
             r"\bi work as\s+(?:an?\s+)?([A-Za-z][A-Za-z0-9 /&-]{1,50})\b",
@@ -529,7 +530,7 @@ User message: {user_message}"""
 
 # ── Silent Learning ──────────────────────────────────────────
 
-def run_silent_learning(user_message: str, assistant_response: str, existing_context: str) -> int:
+def run_silent_learning(user_message: str, assistant_response: str, existing_context: str) -> list[str]:
     try:
         prompt = f"""Extract any NEW facts about the user, their business, preferences, workflows, or goals from this conversation that are NOT already known.
 
@@ -555,7 +556,7 @@ Return ONLY the JSON array, nothing else."""
         if match:
             facts = json.loads(fix_json(match.group(0)))
             if isinstance(facts, list) and facts:
-                count = 0
+                saved_facts = []
                 for fact in facts[:5]:
                     if isinstance(fact, str) and len(fact) > 10:
                         deduplicate_and_add(fact, {
@@ -564,11 +565,11 @@ Return ONLY the JSON array, nothing else."""
                             "source": "auto",
                             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
                         })
-                        count += 1
-                return count
+                        saved_facts.append(fact)
+                return saved_facts
     except Exception as e:
         logger.warning(f"Silent learning failed: {e}")
-    return 0
+    return []
 
 
 # ── Skill Execution ──────────────────────────────────────────
@@ -775,9 +776,9 @@ async def chat(req: ChatRequest):
             )
 
             existing_context = system_prompt[:1000]
-            auto_count = run_silent_learning(req.message, full_response, existing_context)
-            if auto_count > 0:
-                yield f"data: {json.dumps({'auto_learned': auto_count})}\n\n"
+            auto_facts = run_silent_learning(req.message, full_response, existing_context)
+            if auto_facts:
+                yield f"data: {json.dumps({'auto_learned': len(auto_facts), 'auto_learned_facts': auto_facts})}\n\n"
 
             prune_memories()
 

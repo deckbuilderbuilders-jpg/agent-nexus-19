@@ -38,7 +38,7 @@ export interface ChatStreamCallbacks {
   onLearnings: (learnings: { facts: string[]; profileUpdates: Record<string, string> }) => void;
   onToolCall: (call: { skill: string; params: Record<string, unknown> }) => void;
   onToolResult: (result: { skill: string; success: boolean; output?: string; error?: string }) => void;
-  onAutoLearned: (count: number) => void;
+  onAutoLearned: (count: number, facts: string[]) => void;
   onPlanStep: (step: { step: number; total: number; description: string; status: string }) => void;
   onComputeRoute: (route: { engine: string; reason: string }) => void;
   onDone: () => void;
@@ -81,7 +81,7 @@ export async function streamChat(req: ChatRequest, cb: ChatStreamCallbacks): Pro
           if (evt.learnings) cb.onLearnings(evt.learnings);
           if (evt.tool_call) cb.onToolCall(evt.tool_call);
           if (evt.tool_result) cb.onToolResult(evt.tool_result);
-          if (evt.auto_learned) cb.onAutoLearned(evt.auto_learned);
+          if (evt.auto_learned) cb.onAutoLearned(evt.auto_learned, evt.auto_learned_facts || []);
           if (evt.plan_step) cb.onPlanStep(evt.plan_step);
           if (evt.compute_route) cb.onComputeRoute(evt.compute_route);
           if (evt.error) cb.onError(evt.error);

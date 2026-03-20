@@ -155,7 +155,18 @@ export function ChatView() {
           return { messages: msgs };
         });
       },
-      onAutoLearned: (count) => setAutoLearnedCount(count),
+      onAutoLearned: (count, facts) => {
+        for (const fact of facts) {
+          useAgentStore.getState().addMemory({
+            text: fact,
+            type: 'fact',
+            weight: 0.8,
+            timestamp: new Date().toISOString(),
+            source: 'auto',
+          });
+        }
+        setAutoLearnedCount(count);
+      },
       onPlanStep: (step) => {
         setPlanSteps(prev => {
           const idx = prev.findIndex(s => s.step === step.step);
