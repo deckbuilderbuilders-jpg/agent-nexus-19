@@ -66,6 +66,7 @@ interface AgentState {
   memories: Memory[];
   addMemory: (mem: Omit<Memory, 'id'>) => void;
   removeMemory: (id: string) => void;
+  updateMemoryWeight: (id: string, weight: number) => void;
 
   // Rules
   rules: Rule[];
