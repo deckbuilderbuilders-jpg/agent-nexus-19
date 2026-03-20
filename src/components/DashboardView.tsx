@@ -1,4 +1,4 @@
-import { Database, Shield, Wrench, ArrowRight, Brain, Zap } from 'lucide-react';
+import { Database, Shield, Wrench, ArrowRight, Brain, Zap, Monitor, Cloud, Download } from 'lucide-react';
 import { useAgentStore } from '@/store/agentStore';
 
 export function DashboardView() {
@@ -6,6 +6,7 @@ export function DashboardView() {
   const rules = useAgentStore((s) => s.rules);
   const skills = useAgentStore((s) => s.skills);
   const profile = useAgentStore((s) => s.profile);
+  const compute = useAgentStore((s) => s.compute);
   const setActiveView = useAgentStore((s) => s.setActiveView);
 
   const factCount = memories.filter((m) => m.type === 'fact').length;
@@ -14,23 +15,23 @@ export function DashboardView() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
       <div className="px-6 py-4 border-b border-border bg-card shadow-soft flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center text-sm accent-glow">
-          🧠
-        </div>
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center text-sm accent-glow">🧠</div>
         <div>
-          <h1 className="font-display text-base font-bold text-foreground leading-tight">Neural Agent v5</h1>
+          <h1 className="font-display text-base font-bold text-foreground leading-tight">Nexus</h1>
           <p className="text-[9px] text-muted-foreground">Learns · Remembers · Acts — your local AI second brain</p>
         </div>
-        <div className="ml-auto flex items-center gap-[5px] text-[10px] text-primary">
+        <div className="ml-auto flex items-center gap-2 text-[10px]">
+          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary border border-border">
+            {compute.mode === 'local' ? <Monitor className="w-3 h-3" /> : compute.mode === 'cloud' ? <Cloud className="w-3 h-3" /> : <Zap className="w-3 h-3" />}
+            <span className="text-[8px] font-mono text-muted-foreground">{compute.mode}</span>
+          </div>
           <div className="status-dot" />
-          Ready
+          <span className="text-primary">Ready</span>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 bg-background">
-        {/* Stats */}
         <div className="grid grid-cols-4 gap-2 animate-fade-up">
           {[
             { label: 'Facts', value: factCount, icon: '📝' },
@@ -46,15 +47,16 @@ export function DashboardView() {
           ))}
         </div>
 
-        {/* v5 capabilities */}
         <div className="bg-card border border-border rounded-[10px] p-4 shadow-soft animate-fade-up" style={{ animationDelay: '40ms' }}>
-          <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">v5 Capabilities</span>
+          <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Capabilities</span>
           <div className="grid grid-cols-2 gap-2 mt-3">
             {[
               { icon: <Brain className="w-3.5 h-3.5" />, label: 'Silent Learning', desc: 'Auto-extracts facts from conversations' },
-              { icon: <Zap className="w-3.5 h-3.5" />, label: 'Semantic RAG', desc: 'Finds relevant memories, not just recent ones' },
+              { icon: <Zap className="w-3.5 h-3.5" />, label: 'Hybrid Compute', desc: 'Local Ollama + cloud RunPod fallback' },
               { icon: <Wrench className="w-3.5 h-3.5" />, label: 'Skill Execution', desc: 'Runs tools: search, read/write files' },
               { icon: <Shield className="w-3.5 h-3.5" />, label: 'Memory Lifecycle', desc: 'Decay, dedup, and smart pruning' },
+              { icon: <Download className="w-3.5 h-3.5" />, label: 'Auto Updates', desc: 'Safe one-click updates, data preserved' },
+              { icon: <Monitor className="w-3.5 h-3.5" />, label: 'PWA + Hotkey', desc: 'Install as app, ⌘Space quick chat' },
             ].map(cap => (
               <div key={cap.label} className="flex items-start gap-2 p-2 rounded-lg bg-secondary/50">
                 <div className="text-primary mt-0.5">{cap.icon}</div>
@@ -67,7 +69,6 @@ export function DashboardView() {
           </div>
         </div>
 
-        {/* Profile progress */}
         <div className="bg-card border border-border rounded-[10px] p-4 shadow-soft animate-fade-up" style={{ animationDelay: '80ms' }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Profile Completeness</span>
@@ -78,48 +79,14 @@ export function DashboardView() {
           </div>
           {profileFilled < 8 && (
             <p className="text-[9px] text-muted-foreground mt-2">
-              The more I know about your business, the better.{' '}
-              <button onClick={() => setActiveView('profile')} className="text-primary hover:underline">
-                Complete profile →
-              </button>
+              The more I know, the better.{' '}
+              <button onClick={() => setActiveView('profile')} className="text-primary hover:underline">Complete profile →</button>
             </p>
           )}
         </div>
 
-        {/* Architecture */}
-        <div className="bg-card border border-border rounded-[10px] p-4 shadow-soft animate-fade-up" style={{ animationDelay: '120ms' }}>
-          <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Architecture</span>
-          <div className="grid grid-cols-3 gap-3 mt-3">
-            <div>
-              <div className="flex items-center gap-1.5 text-[10px] font-display font-bold text-amber-600 mb-1">
-                <Shield className="w-3 h-3" /> Rules
-              </div>
-              <p className="text-[9px] text-muted-foreground leading-[1.5]">
-                User-defined constraints. Always loaded, always followed.
-              </p>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 text-[10px] font-display font-bold text-primary mb-1">
-                <Wrench className="w-3 h-3" /> Skills
-              </div>
-              <p className="text-[9px] text-muted-foreground leading-[1.5]">
-                Executable capabilities. Web search, file I/O, and more.
-              </p>
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5 text-[10px] font-display font-bold text-blue-500 mb-1">
-                <Database className="w-3 h-3" /> Memory
-              </div>
-              <p className="text-[9px] text-muted-foreground leading-[1.5]">
-                Semantic RAG with decay + dedup. Gets smarter over time.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent knowledge */}
         {memories.length > 0 && (
-          <div className="animate-fade-up" style={{ animationDelay: '160ms' }}>
+          <div className="animate-fade-up" style={{ animationDelay: '120ms' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Recent Knowledge</span>
               <button onClick={() => setActiveView('memory')} className="text-[9px] text-primary hover:underline flex items-center gap-0.5">
