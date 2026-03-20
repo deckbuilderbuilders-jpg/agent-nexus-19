@@ -1,46 +1,95 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Check, X } from 'lucide-react';
+import { Send, Sparkles, Check, X, WifiOff } from 'lucide-react';
 import { useAgentStore } from '@/store/agentStore';
-
-const DEMO_RESPONSES = [
-  "Based on your ICP (VP Marketing at mid-market B2B SaaS), I'd recommend a 4-touch cold email sequence:\n\n**Email 1 — Pain point hook**\nSubject: \"[Company] spending too much on acquisition?\"\nLead with the industry average CAC ($65) vs your client's results.\n\n**Email 2 — Case study**\nSubject: \"How [Similar Company] cut CAC by 38%\"\nSocial proof with specific numbers.\n\n**Email 3 — Value add**\nShare a relevant insight or micro-report. No ask.\n\n**Email 4 — Direct CTA**\nSubject: \"Quick question, [Name]\"\n15-min call offer with a specific time.\n\nWant me to draft the full copy for any of these?",
-  "Looking at your current metrics — $47 CAC with a 34% email open rate — here are three levers to pull:\n\n1. **Tighten targeting** — Your open rate is decent but your CAC suggests you're casting too wide.\n\n2. **A/B test subject lines** — At 34% opens, you have room to push to 42%+.\n\n3. **Shorten the funnel** — If your demo-to-close is more than 2 steps, look for friction.\n\nWhich of these do you want to dig into first?",
-  "Given that Rival Corp just launched a freemium tier, here's how I'd position against it:\n\n**Don't compete on price — compete on outcome.**\n\nFreemium attracts tire-kickers. Your positioning should emphasize:\n- Time-to-value\n- Support quality (freemium = self-serve, you = white-glove)\n- Integration depth\n\n**Messaging framework:**\n\"[Your Product] isn't the cheapest option. It's the one that actually works.\"\n\nShall I draft a battle card for your sales team?",
-];
+import { streamChat, checkHealth, type ChatRequest } from '@/lib/api';
 
 export function ChatView() {
-  const { messages, isThinking, addMessage, setThinking, pendingLearnings, confirmLearnings, dismissLearnings, setPendingLearnings } = useAgentStore();
+  const {
+    messages, isThinking, addMessage, setThinking,
+    pendingLearnings, confirmLearnings, dismissLearnings, setPendingLearnings,
+    memories, rules, profile, topicRelationships,
+  } = useAgentStore();
   const [input, setInput] = useState('');
+  const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const responseIndex = useRef(0);
+  const streamContent = useRef('');
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isThinking]);
 
-  const handleSend = () => {
+  // Check backend health on mount
+  useEffect(() => {
+    checkHealth().then(h => setBackendOnline(h?.ok ?? false));
+    const interval = setInterval(() => {
+      checkHealth().then(h => setBackendOnline(h?.ok ?? false));
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSend = async () => {
     const text = input.trim();
     if (!text || isThinking) return;
     addMessage({ role: 'user', content: text });
     setInput('');
     setThinking(true);
+    streamContent.current = '';
 
-    setTimeout(() => {
-      const response = DEMO_RESPONSES[responseIndex.current % DEMO_RESPONSES.length];
-      responseIndex.current += 1;
-      addMessage({ role: 'assistant', content: response });
-      setThinking(false);
+    if (!backendOnline) {
+      // Demo fallback when backend is offline
+      setTimeout(() => {
+        addMessage({
+          role: 'assistant',
+          content: '⚠️ Backend offline. To connect:\n\n1. Start Ollama: `ollama serve`\n2. Start the backend: `cd backend && source venv/bin/activate && uvicorn main:app --reload`\n3. Refresh this page.\n\nOnce connected, I\'ll use your local LLM with full memory context.',
+        });
+        setThinking(false);
+      }, 600);
+      return;
+    }
 
-      if (responseIndex.current % 2 === 0) {
-        setTimeout(() => {
-          setPendingLearnings({
-            facts: ['Prefers battle cards for sales enablement'],
-            profileUpdates: {},
-          });
-        }, 800);
-      }
-    }, 1200 + Math.random() * 800);
+    const req: ChatRequest = {
+      message: text,
+      memories: memories.map(m => ({ text: m.text, type: m.type, weight: m.weight })),
+      rules: rules.map(r => `[P${r.priority}] ${r.text}`),
+      profile: profile as unknown as Record<string, unknown>,
+      relationships: topicRelationships,
+    };
+
+    // Create placeholder assistant message
+    addMessage({ role: 'assistant', content: '' });
+
+    await streamChat(req, {
+      onToken: (token) => {
+        streamContent.current += token;
+        // Update the last assistant message in place
+        useAgentStore.setState(s => {
+          const msgs = [...s.messages];
+          const last = msgs[msgs.length - 1];
+          if (last?.role === 'assistant') {
+            msgs[msgs.length - 1] = { ...last, content: streamContent.current };
+          }
+          return { messages: msgs };
+        });
+      },
+      onLearnings: (learnings) => {
+        setPendingLearnings(learnings);
+      },
+      onDone: () => {
+        setThinking(false);
+      },
+      onError: (error) => {
+        useAgentStore.setState(s => {
+          const msgs = [...s.messages];
+          const last = msgs[msgs.length - 1];
+          if (last?.role === 'assistant') {
+            msgs[msgs.length - 1] = { ...last, content: `Error: ${error}` };
+          }
+          return { messages: msgs };
+        });
+        setThinking(false);
+      },
+    });
   };
 
   return (
@@ -51,9 +100,20 @@ export function ChatView() {
           🧠
         </div>
         <h1 className="font-display text-base font-bold text-foreground">Neural Console</h1>
-        <div className="ml-auto flex items-center gap-[5px] text-[10px] text-primary">
-          <div className="status-dot" />
-          Connected
+        <div className="ml-auto flex items-center gap-[5px] text-[10px]">
+          {backendOnline === null ? (
+            <span className="text-muted-foreground">Checking...</span>
+          ) : backendOnline ? (
+            <>
+              <div className="status-dot" />
+              <span className="text-primary">Connected</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-3 h-3 text-muted-foreground" />
+              <span className="text-muted-foreground">Offline — demo mode</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -61,7 +121,9 @@ export function ChatView() {
       <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-3.5 bg-background">
         {messages.length === 0 && (
           <div className="self-center bg-secondary border border-dashed border-border text-muted-foreground text-[11px] max-w-[90%] text-center rounded-[10px] px-4 py-3 animate-fade-in">
-            Agent initialized · Memory-augmented · Persistent knowledge base
+            {backendOnline
+              ? 'Agent initialized · Memory-augmented · Persistent knowledge base'
+              : 'Start your backend to enable AI chat. Memory and profile editing work offline.'}
           </div>
         )}
 
@@ -81,7 +143,7 @@ export function ChatView() {
           </div>
         ))}
 
-        {isThinking && (
+        {isThinking && messages[messages.length - 1]?.content === '' && (
           <div className="self-start bg-card border border-border rounded-[14px] rounded-bl-[4px] shadow-soft px-4 py-3 flex gap-[5px] animate-fade-in">
             <span className="typing-dot" />
             <span className="typing-dot" />
@@ -124,7 +186,7 @@ export function ChatView() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask about campaigns, outreach, positioning..."
+            placeholder={backendOnline ? "Ask about campaigns, outreach, positioning..." : "Start backend to enable AI chat..."}
             className="flex-1 bg-background border border-border rounded-[10px] px-4 py-3 text-foreground text-[12px]
               placeholder:text-muted-foreground outline-none transition-all
               focus:border-primary focus:shadow-[0_0_0_3px_hsl(163_83%_31%/0.08)]"
