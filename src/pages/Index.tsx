@@ -10,6 +10,7 @@ import { PerformanceHUD } from '@/components/PerformanceHUD';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { MiniChat, MiniChatFAB } from '@/components/MiniChat';
 import { UpdateBanner } from '@/components/UpdateBanner';
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { useAgentStore } from '@/store/agentStore';
 import { useAutoSync } from '@/hooks/useAutoSync';
 
@@ -43,6 +44,7 @@ const Index = () => {
       </div>
       <MiniChat />
       <MiniChatFAB />
+      <PWAInstallPrompt />
     </>
   );
 };
