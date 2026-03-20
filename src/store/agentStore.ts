@@ -140,6 +140,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   memories: DEMO_MEMORIES,
   addMemory: (mem) => set((s) => ({ memories: [{ ...mem, id: genId() }, ...s.memories] })),
   removeMemory: (id) => set((s) => ({ memories: s.memories.filter((m) => m.id !== id) })),
+  updateMemoryWeight: (id, weight) => set((s) => ({ memories: s.memories.map((m) => m.id === id ? { ...m, weight } : m) })),
 
   rules: DEMO_RULES,
   addRule: (rule) => set((s) => ({ rules: [{ ...rule, id: genId() }, ...s.rules] })),
