@@ -136,6 +136,7 @@ class LearningsModel(BaseModel):
     facts: list[str] = []
     profileUpdates: dict[str, str] = {}
 
+
 def extract_learnings(text: str) -> Optional[dict]:
     patterns = [
         r'\[LEARNINGS\]\s*```json?\s*(.*?)\s*```',
@@ -154,6 +155,42 @@ def extract_learnings(text: str) -> Optional[dict]:
                 except (json.JSONDecodeError, ValidationError):
                     continue
     return None
+
+
+def extract_explicit_profile_updates(message: str, current_profile: Optional[dict] = None) -> dict[str, str]:
+    """Deterministically capture explicit user profile facts even if the model forgets LEARNINGS format."""
+    updates: dict[str, str] = {}
+    current_profile = current_profile or {}
+
+    explicit_patterns = {
+        "name": [
+            r"\bmy name is\s+([A-Za-z][A-Za-z' -]{0,40})\b",
+            r"\bcall me\s+([A-Za-z][A-Za-z' -]{0,40})\b",
+        ],
+        "role": [
+            r"\bi work as\s+(?:an?\s+)?([A-Za-z][A-Za-z0-9 /&-]{1,50})\b",
+            r"\bmy role is\s+([A-Za-z][A-Za-z0-9 /&-]{1,50})\b",
+            r"\bi am\s+(?:an?\s+)?([A-Za-z][A-Za-z0-9 /&-]{1,50})\s+at\s+[A-Za-z0-9]",
+        ],
+        "company": [
+            r"\bmy company is\s+([A-Za-z0-9][A-Za-z0-9 .,&'()-]{1,60})\b",
+            r"\bi work at\s+([A-Za-z0-9][A-Za-z0-9 .,&'()-]{1,60})\b",
+            r"\bi am\s+(?:an?\s+)?[A-Za-z][A-Za-z0-9 /&-]{1,50}\s+at\s+([A-Za-z0-9][A-Za-z0-9 .,&'()-]{1,60})\b",
+        ],
+    }
+
+    for field, patterns in explicit_patterns.items():
+        for pattern in patterns:
+            match = re.search(pattern, message, re.IGNORECASE)
+            if not match:
+                continue
+            value = match.group(1).strip(" .,!?:;\"'")
+            value = re.sub(r"\s+", " ", value)
+            if value and current_profile.get(field) != value:
+                updates[field] = value
+                break
+
+    return updates
 
 
 # ── Tool Call Extraction ─────────────────────────────────────
