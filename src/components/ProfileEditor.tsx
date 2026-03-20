@@ -1,4 +1,4 @@
-import { User, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useAgentStore } from '@/store/agentStore';
 import { useState } from 'react';
 
@@ -24,57 +24,41 @@ export function ProfileEditor() {
 
   const startEdit = (field: string) => {
     const val = profile[field as keyof typeof profile];
-    if (Array.isArray(val)) {
-      setEditValue(val.join(', '));
-    } else if (typeof val === 'object' && val !== null) {
-      setEditValue(Object.entries(val as Record<string, string>).map(([k, v]) => `${k}: ${v}`).join(', '));
-    } else {
-      setEditValue((val as string) || '');
-    }
+    if (Array.isArray(val)) setEditValue(val.join(', '));
+    else if (typeof val === 'object' && val !== null) setEditValue(Object.entries(val as Record<string, string>).map(([k, v]) => `${k}: ${v}`).join(', '));
+    else setEditValue((val as string) || '');
     setEditField(field);
   };
 
   const saveEdit = () => {
     if (!editField) return;
     const meta = FIELD_LABELS[editField];
-    if (meta.type === 'list') {
-      updateProfile(editField, editValue.split(',').map((s) => s.trim()).filter(Boolean));
-    } else if (meta.type === 'map') {
+    if (meta.type === 'list') updateProfile(editField, editValue.split(',').map(s => s.trim()).filter(Boolean));
+    else if (meta.type === 'map') {
       const obj: Record<string, string> = {};
-      editValue.split(',').forEach((pair) => {
-        const [k, v] = pair.split(':').map((s) => s.trim());
-        if (k && v) obj[k] = v;
-      });
+      editValue.split(',').forEach(pair => { const [k, v] = pair.split(':').map(s => s.trim()); if (k && v) obj[k] = v; });
       updateProfile(editField, obj);
-    } else {
-      updateProfile(editField, editValue || null);
-    }
+    } else updateProfile(editField, editValue || null);
     setEditField(null);
-    setEditValue('');
   };
 
   const filledCount = Object.entries(profile).filter(([, v]) => v && (!Array.isArray(v) || v.length > 0) && (typeof v !== 'object' || Object.keys(v).length > 0)).length;
-  const totalFields = Object.keys(FIELD_LABELS).length;
 
   return (
-    <div className="h-full flex flex-col p-6">
-      <div className="flex items-center gap-3 mb-6 animate-fade-up">
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <User className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold">Profile</h2>
-          <p className="text-xs text-muted-foreground">{filledCount}/{totalFields} fields filled — the more I know, the better I get</p>
+    <div className="h-full flex flex-col">
+      <div className="px-4 py-2.5 border-b border-border bg-card shadow-soft flex items-center gap-2 shrink-0">
+        <h2 className="font-display text-[13px] font-bold text-foreground">👤 Profile</h2>
+        <span className="text-[9px] text-muted-foreground ml-1">{filledCount}/12 fields — the more I know, the better I get</span>
+      </div>
+
+      {/* Progress */}
+      <div className="px-4 py-2 border-b border-border bg-card">
+        <div className="w-full h-[5px] bg-secondary rounded-full overflow-hidden">
+          <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${(filledCount / 12) * 100}%` }} />
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="w-full h-1.5 bg-muted rounded-full mb-6 animate-fade-up" style={{ animationDelay: '60ms' }}>
-        <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${(filledCount / totalFields) * 100}%` }} />
-      </div>
-
-      {/* Fields */}
-      <div className="flex-1 overflow-y-auto space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2 bg-background">
         {Object.entries(FIELD_LABELS).map(([field, meta], i) => {
           const val = profile[field as keyof typeof profile];
           const isEmpty = !val || (Array.isArray(val) && val.length === 0) || (typeof val === 'object' && !Array.isArray(val) && Object.keys(val as object).length === 0);
@@ -82,37 +66,36 @@ export function ProfileEditor() {
 
           let display = '';
           if (Array.isArray(val)) display = val.join(', ');
-          else if (typeof val === 'object' && val !== null) display = Object.entries(val).map(([k, v]) => `${k}: ${v}`).join(' · ');
+          else if (typeof val === 'object' && val !== null) display = Object.entries(val as Record<string, string>).map(([k, v]) => `${k}: ${v}`).join(' · ');
           else display = (val as string) || '';
 
           return (
             <div
               key={field}
-              className="bg-card border border-border rounded-lg p-3 hover:border-primary/20 transition-all animate-fade-up cursor-pointer"
-              style={{ animationDelay: `${90 + i * 30}ms` }}
+              className="bg-card border border-border rounded-[8px] p-2.5 hover:shadow-mid transition-all cursor-pointer animate-fade-up"
+              style={{ animationDelay: `${i * 20}ms` }}
               onClick={() => !isEditing && startEdit(field)}
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{meta.label}</span>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[8px] font-semibold uppercase tracking-[1px] text-muted-foreground">{meta.label}</span>
                 {meta.type !== 'text' && (
-                  <span className="text-[10px] font-mono text-muted-foreground">{meta.type === 'list' ? 'comma-separated' : 'key: value pairs'}</span>
+                  <span className="text-[7px] text-muted-foreground">{meta.type === 'list' ? 'comma-separated' : 'key: value'}</span>
                 )}
               </div>
               {isEditing ? (
-                <div className="flex gap-2 mt-1">
+                <div className="flex gap-1.5 mt-1">
                   <input
-                    autoFocus
-                    value={editValue}
+                    autoFocus value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditField(null); }}
-                    className="flex-1 bg-muted rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    className="flex-1 bg-secondary rounded-[5px] px-2 py-1 text-[10px] outline-none focus:ring-1 focus:ring-primary/40"
                   />
-                  <button onClick={saveEdit} className="p-1.5 rounded-md bg-primary text-primary-foreground hover:brightness-110 active:scale-95 transition-all">
-                    <Save className="w-3.5 h-3.5" />
+                  <button onClick={saveEdit} className="p-1 rounded-[5px] bg-primary text-primary-foreground hover:brightness-105 active:scale-[0.97] transition-all">
+                    <Save className="w-3 h-3" />
                   </button>
                 </div>
               ) : (
-                <p className={`text-sm ${isEmpty ? 'text-muted-foreground/50 italic' : 'text-foreground'}`}>
+                <p className={`text-[10px] leading-[1.5] ${isEmpty ? 'text-muted-foreground/50 italic' : 'text-foreground'}`}>
                   {isEmpty ? 'Click to set...' : display}
                 </p>
               )}

@@ -1,4 +1,4 @@
-import { Brain, Database, Shield, Clock, Wrench, Activity, Cpu, ArrowRight } from 'lucide-react';
+import { Database, Shield, Wrench, ArrowRight } from 'lucide-react';
 import { useAgentStore } from '@/store/agentStore';
 
 export function DashboardView() {
@@ -12,118 +12,110 @@ export function DashboardView() {
   const episodeCount = memories.filter((m) => m.type === 'episode').length;
   const profileFilled = Object.entries(profile).filter(([, v]) => v && (!Array.isArray(v) || v.length > 0) && (typeof v !== 'object' || Object.keys(v).length > 0)).length;
 
-  const stats = [
-    { label: 'Facts', value: factCount, icon: Database, color: 'text-info', bgColor: 'bg-info/10' },
-    { label: 'Rules', value: rules.length, icon: Shield, color: 'text-warning', bgColor: 'bg-warning/10' },
-    { label: 'Episodes', value: episodeCount, icon: Clock, color: 'text-success', bgColor: 'bg-success/10' },
-    { label: 'Skills', value: `${skills.filter((s) => s.enabled).length}/${skills.length}`, icon: Wrench, color: 'text-primary', bgColor: 'bg-primary/10' },
-  ];
-
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="mb-8 animate-fade-up">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center glow-primary">
-            <Brain className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold leading-tight" style={{ lineHeight: '1.1' }}>Neural Agent v4</h1>
-            <p className="text-sm text-muted-foreground mt-1">Self-improving marketing & bizdev assistant</p>
-          </div>
+      <div className="px-6 py-4 border-b border-border bg-card shadow-soft flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-emerald-400 flex items-center justify-center text-sm accent-glow">
+          🧠
+        </div>
+        <div>
+          <h1 className="font-display text-base font-bold text-foreground leading-tight">Neural Agent v4</h1>
+          <p className="text-[9px] text-muted-foreground">Self-improving marketing & bizdev assistant</p>
+        </div>
+        <div className="ml-auto flex items-center gap-[5px] text-[10px] text-primary">
+          <div className="status-dot" />
+          Ready
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        {stats.map((stat, i) => (
-          <div
-            key={stat.label}
-            className="bg-card border border-border rounded-xl p-4 animate-fade-up"
-            style={{ animationDelay: `${60 + i * 50}ms` }}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`w-8 h-8 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                <stat.icon className={`w-4 h-4 ${stat.color}`} />
-              </div>
+      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4 bg-background">
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-2 animate-fade-up">
+          {[
+            { label: 'Facts', value: factCount, icon: '📝' },
+            { label: 'Rules', value: rules.length, icon: '⚙️' },
+            { label: 'Episodes', value: episodeCount, icon: '📋' },
+            { label: 'Skills', value: `${skills.filter(s => s.enabled).length}/${skills.length}`, icon: '🔧' },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-card border border-border rounded-[8px] p-3 text-center shadow-soft">
+              <div className="text-sm mb-1">{stat.icon}</div>
+              <div className="font-display text-lg font-bold text-foreground" style={{ lineHeight: '1.1' }}>{stat.value}</div>
+              <div className="text-[7px] uppercase tracking-[0.8px] text-muted-foreground mt-1">{stat.label}</div>
             </div>
-            <div className="text-2xl font-semibold font-mono" style={{ lineHeight: '1.1' }}>{stat.value}</div>
-            <div className="text-xs text-muted-foreground mt-1">{stat.label}</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* Profile completeness */}
-      <div className="bg-card border border-border rounded-xl p-5 mb-6 animate-fade-up" style={{ animationDelay: '260ms' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium">Profile Completeness</h3>
-          <span className="text-xs font-mono text-primary">{Math.round((profileFilled / 12) * 100)}%</span>
-        </div>
-        <div className="w-full h-2 bg-muted rounded-full">
-          <div className="h-full bg-primary rounded-full transition-all duration-700" style={{ width: `${(profileFilled / 12) * 100}%` }} />
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          The more I know about your business, the better my recommendations. {profileFilled < 8 && (
-            <button onClick={() => setActiveView('profile')} className="text-primary hover:underline inline-flex items-center gap-1">
-              Complete your profile <ArrowRight className="w-3 h-3" />
-            </button>
+        {/* Profile progress */}
+        <div className="bg-card border border-border rounded-[10px] p-4 shadow-soft animate-fade-up" style={{ animationDelay: '60ms' }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Profile Completeness</span>
+            <span className="text-[10px] font-mono text-primary">{Math.round((profileFilled / 12) * 100)}%</span>
+          </div>
+          <div className="w-full h-[5px] bg-secondary rounded-full">
+            <div className="h-full bg-primary rounded-full transition-all duration-700" style={{ width: `${(profileFilled / 12) * 100}%` }} />
+          </div>
+          {profileFilled < 8 && (
+            <p className="text-[9px] text-muted-foreground mt-2">
+              The more I know about your business, the better.{' '}
+              <button onClick={() => setActiveView('profile')} className="text-primary hover:underline">
+                Complete profile →
+              </button>
+            </p>
           )}
-        </p>
-      </div>
-
-      {/* Architecture */}
-      <div className="bg-card border border-border rounded-xl p-5 animate-fade-up" style={{ animationDelay: '320ms' }}>
-        <h3 className="text-sm font-medium mb-4">How it works</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-warning font-medium">
-              <Shield className="w-3.5 h-3.5" />
-              Tier 1: Rules
-            </div>
-            <p className="text-muted-foreground leading-relaxed">
-              User-defined behavioral constraints. Always loaded, always followed. Override everything else.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-success font-medium">
-              <Wrench className="w-3.5 h-3.5" />
-              Tier 2: Skills
-            </div>
-            <p className="text-muted-foreground leading-relaxed">
-              Injected expertise + executable capabilities. Drop a .py file, restart, done. Web, email, social — all plugins.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-info font-medium">
-              <Database className="w-3.5 h-3.5" />
-              Tier 3: Memory
-            </div>
-            <p className="text-muted-foreground leading-relaxed">
-              Profile (structured), episodes (session continuity), facts (semantic recall). All learning is opt-in.
-            </p>
-          </div>
         </div>
-      </div>
 
-      {/* Recent memories */}
-      {memories.length > 0 && (
-        <div className="mt-6 animate-fade-up" style={{ animationDelay: '380ms' }}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium">Recent Knowledge</h3>
-            <button onClick={() => setActiveView('memory')} className="text-xs text-primary hover:underline flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="space-y-2">
-            {memories.slice(0, 3).map((mem) => (
-              <div key={mem.id} className="bg-card border border-border rounded-lg p-3 text-sm text-muted-foreground">
-                <span className="font-mono text-[10px] text-primary mr-2">[{mem.weight.toFixed(1)}]</span>
-                {mem.text.slice(0, 120)}{mem.text.length > 120 ? '...' : ''}
+        {/* Architecture */}
+        <div className="bg-card border border-border rounded-[10px] p-4 shadow-soft animate-fade-up" style={{ animationDelay: '120ms' }}>
+          <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Architecture</span>
+          <div className="grid grid-cols-3 gap-3 mt-3">
+            <div>
+              <div className="flex items-center gap-1.5 text-[10px] font-display font-bold text-amber-600 mb-1">
+                <Shield className="w-3 h-3" /> Rules
               </div>
-            ))}
+              <p className="text-[9px] text-muted-foreground leading-[1.5]">
+                User-defined constraints. Always loaded, always followed.
+              </p>
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 text-[10px] font-display font-bold text-primary mb-1">
+                <Wrench className="w-3 h-3" /> Skills
+              </div>
+              <p className="text-[9px] text-muted-foreground leading-[1.5]">
+                Executable capabilities. Drop a .py file, restart, done.
+              </p>
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 text-[10px] font-display font-bold text-blue-500 mb-1">
+                <Database className="w-3 h-3" /> Memory
+              </div>
+              <p className="text-[9px] text-muted-foreground leading-[1.5]">
+                Profile + episodes + facts. All learning is opt-in.
+              </p>
+            </div>
           </div>
         </div>
-      )}
+
+        {/* Recent knowledge */}
+        {memories.length > 0 && (
+          <div className="animate-fade-up" style={{ animationDelay: '180ms' }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-display font-bold uppercase tracking-[1px] text-muted-foreground">Recent Knowledge</span>
+              <button onClick={() => setActiveView('memory')} className="text-[9px] text-primary hover:underline flex items-center gap-0.5">
+                View all <ArrowRight className="w-[9px] h-[9px]" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-[5px]">
+              {memories.slice(0, 4).map((mem) => (
+                <div key={mem.id} className="bg-secondary rounded-[7px] px-[9px] py-[6px] text-[10px] text-foreground leading-[1.5]">
+                  <span className="font-mono text-[8px] text-primary mr-1">[{mem.weight.toFixed(1)}]</span>
+                  {mem.text.slice(0, 100)}{mem.text.length > 100 ? '...' : ''}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
