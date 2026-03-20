@@ -575,13 +575,17 @@ async def health():
 
 @app.get("/api/stats")
 async def stats():
+    try:
+        mem_count = state.collection.count()
+    except Exception:
+        mem_count = 0
     return {
         "tps": state.tps,
         "total_tokens": state.total_tokens,
         "model": state.model,
         "generating": state.generating,
         "token_budget": state.last_budget,
-        "memory_count": state.collection.count(),
+        "memory_count": mem_count,
         "compute_engine": state.compute_engine,
     }
 
