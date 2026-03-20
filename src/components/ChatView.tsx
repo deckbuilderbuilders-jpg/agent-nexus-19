@@ -118,7 +118,7 @@ export function ChatView() {
             {pendingLearnings.facts.map((f, i) => (
               <p key={i} className="text-sm text-foreground ml-6 mb-1">📝 {f}</p>
             ))}
-            {Object.entries(pendingLearnings.profileUpdates).map(([k, v]) => (
+            {Object.entries(pendingLearnings.profileUpdates).map(([k, v]: [string, string]) => (
               <p key={k} className="text-sm text-foreground ml-6 mb-1">👤 {k} = {v}</p>
             ))}
             <div className="flex gap-2 mt-3 ml-6">

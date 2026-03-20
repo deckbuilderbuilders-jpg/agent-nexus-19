@@ -47,7 +47,7 @@ export function SkillsOverview() {
               <div className="mb-3">
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Parameters</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
-                  {Object.entries(skill.schema).map(([param, type]) => (
+                  {Object.entries(skill.schema).map(([param, type]: [string, string]) => (
                     <span key={param} className="px-2 py-0.5 text-[11px] font-mono rounded bg-muted text-muted-foreground">
                       {param}: <span className="text-info">{type}</span>
                     </span>
