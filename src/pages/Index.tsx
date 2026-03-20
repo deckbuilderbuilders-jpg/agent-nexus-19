@@ -5,6 +5,7 @@ import { RulesManager } from '@/components/RulesManager';
 import { ProfileEditor } from '@/components/ProfileEditor';
 import { SkillsOverview } from '@/components/SkillsOverview';
 import { DashboardView } from '@/components/DashboardView';
+import { PerformanceHUD } from '@/components/PerformanceHUD';
 import { useAgentStore } from '@/store/agentStore';
 
 const VIEWS = {
@@ -26,6 +27,7 @@ const Index = () => {
         <ActiveComponent />
       </main>
       <AppSidebar />
+      <PerformanceHUD />
     </div>
   );
 };
