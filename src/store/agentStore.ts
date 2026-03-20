@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export interface Message {
   id: string;
@@ -68,7 +69,7 @@ interface AgentState {
   removeMemory: (id: string) => void;
   updateMemoryWeight: (id: string, weight: number) => void;
 
-  // Spatial relationships between topics (set by user dragging bubbles near each other)
+  // Spatial relationships between topics
   topicRelationships: { a: string; b: string; strength: number }[];
   setTopicRelationships: (rels: { a: string; b: string; strength: number }[]) => void;
 
@@ -88,11 +89,15 @@ interface AgentState {
   activeView: 'chat' | 'memory' | 'rules' | 'profile' | 'skills' | 'dashboard';
   setActiveView: (v: AgentState['activeView']) => void;
 
-  // Pending learnings
+  // Pending learnings (profile updates only — facts auto-commit silently)
   pendingLearnings: { facts: string[]; profileUpdates: Record<string, string>; } | null;
   setPendingLearnings: (l: AgentState['pendingLearnings']) => void;
   confirmLearnings: () => void;
   dismissLearnings: () => void;
+
+  // Auto-learned fact count (transient indicator)
+  autoLearnedCount: number;
+  setAutoLearnedCount: (n: number) => void;
 }
 
 const genId = () => Math.random().toString(36).slice(2, 10);
@@ -130,52 +135,71 @@ const DEMO_PROFILE: UserProfile = {
 
 const DEMO_SKILLS: SkillInfo[] = [
   { name: 'inject_knowledge', description: 'Inject a text file as searchable knowledge', schema: { filepath: 'string' }, requires_credentials: [], enabled: true },
-  { name: 'web_search', description: 'Search the web for current information', schema: { query: 'string' }, requires_credentials: ['SERPAPI_KEY'], enabled: false },
-  { name: 'email_send', description: 'Send emails via SMTP', schema: { to: 'string', subject: 'string', body: 'string' }, requires_credentials: ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'], enabled: false },
-  { name: 'web_fetch', description: 'Fetch and parse a URL', schema: { url: 'string' }, requires_credentials: [], enabled: false },
+  { name: 'web_search', description: 'Search the web for current information', schema: { query: 'string' }, requires_credentials: [], enabled: false },
+  { name: 'write_file', description: 'Write content to a local file', schema: { filename: 'string', content: 'string' }, requires_credentials: [], enabled: false },
+  { name: 'read_file', description: 'Read and analyze a local file', schema: { filepath: 'string' }, requires_credentials: [], enabled: false },
 ];
 
-export const useAgentStore = create<AgentState>((set, get) => ({
-  messages: [],
-  isThinking: false,
-  addMessage: (msg) => set((s) => ({ messages: [...s.messages, { ...msg, id: genId(), timestamp: new Date() }] })),
-  setThinking: (v) => set({ isThinking: v }),
+export const useAgentStore = create<AgentState>()(
+  persist(
+    (set, get) => ({
+      messages: [],
+      isThinking: false,
+      addMessage: (msg) => set((s) => ({ messages: [...s.messages, { ...msg, id: genId(), timestamp: new Date() }] })),
+      setThinking: (v) => set({ isThinking: v }),
 
-  memories: DEMO_MEMORIES,
-  addMemory: (mem) => set((s) => ({ memories: [{ ...mem, id: genId() }, ...s.memories] })),
-  removeMemory: (id) => set((s) => ({ memories: s.memories.filter((m) => m.id !== id) })),
-  updateMemoryWeight: (id, weight) => set((s) => ({ memories: s.memories.map((m) => m.id === id ? { ...m, weight } : m) })),
+      memories: DEMO_MEMORIES,
+      addMemory: (mem) => set((s) => ({ memories: [{ ...mem, id: genId() }, ...s.memories] })),
+      removeMemory: (id) => set((s) => ({ memories: s.memories.filter((m) => m.id !== id) })),
+      updateMemoryWeight: (id, weight) => set((s) => ({ memories: s.memories.map((m) => m.id === id ? { ...m, weight } : m) })),
 
-  topicRelationships: [],
-  setTopicRelationships: (rels) => set({ topicRelationships: rels }),
+      topicRelationships: [],
+      setTopicRelationships: (rels) => set({ topicRelationships: rels }),
 
-  rules: DEMO_RULES,
+      rules: DEMO_RULES,
+      addRule: (rule) => set((s) => ({ rules: [{ ...rule, id: genId() }, ...s.rules] })),
+      removeRule: (id) => set((s) => ({ rules: s.rules.filter((r) => r.id !== id) })),
 
-  addRule: (rule) => set((s) => ({ rules: [{ ...rule, id: genId() }, ...s.rules] })),
-  removeRule: (id) => set((s) => ({ rules: s.rules.filter((r) => r.id !== id) })),
+      profile: DEMO_PROFILE,
+      updateProfile: (field, value) => set((s) => ({ profile: { ...s.profile, [field]: value } })),
 
-  profile: DEMO_PROFILE,
-  updateProfile: (field, value) => set((s) => ({ profile: { ...s.profile, [field]: value } })),
+      skills: DEMO_SKILLS,
 
-  skills: DEMO_SKILLS,
+      activeView: 'chat',
+      setActiveView: (v) => set({ activeView: v }),
 
-  activeView: 'chat',
-  setActiveView: (v) => set({ activeView: v }),
+      pendingLearnings: null,
+      setPendingLearnings: (l) => set({ pendingLearnings: l }),
+      confirmLearnings: () => {
+        const { pendingLearnings } = get();
+        if (!pendingLearnings) return;
+        // Only auto-save profile updates via confirm — facts are auto-committed by backend
+        if (Object.keys(pendingLearnings.profileUpdates).length) {
+          for (const [k, v] of Object.entries(pendingLearnings.profileUpdates)) {
+            get().updateProfile(k, v);
+          }
+        }
+        // Also save any explicit facts that came through the approval flow
+        for (const fact of pendingLearnings.facts) {
+          get().addMemory({ text: fact, type: 'fact', weight: 1.5, timestamp: new Date().toISOString(), source: 'conversation' });
+        }
+        set({ pendingLearnings: null });
+      },
+      dismissLearnings: () => set({ pendingLearnings: null }),
 
-  pendingLearnings: null,
-  setPendingLearnings: (l) => set({ pendingLearnings: l }),
-  confirmLearnings: () => {
-    const { pendingLearnings } = get();
-    if (!pendingLearnings) return;
-    for (const fact of pendingLearnings.facts) {
-      get().addMemory({ text: fact, type: 'fact', weight: 1.5, timestamp: new Date().toISOString(), source: 'conversation' });
+      autoLearnedCount: 0,
+      setAutoLearnedCount: (n) => set({ autoLearnedCount: n }),
+    }),
+    {
+      name: 'neural-agent-store',
+      partialize: (state) => ({
+        messages: state.messages.slice(-50), // Keep last 50 messages
+        memories: state.memories,
+        rules: state.rules,
+        profile: state.profile,
+        topicRelationships: state.topicRelationships,
+        activeView: state.activeView,
+      }),
     }
-    if (Object.keys(pendingLearnings.profileUpdates).length) {
-      for (const [k, v] of Object.entries(pendingLearnings.profileUpdates)) {
-        get().updateProfile(k, v);
-      }
-    }
-    set({ pendingLearnings: null });
-  },
-  dismissLearnings: () => set({ pendingLearnings: null }),
-}));
+  )
+);
