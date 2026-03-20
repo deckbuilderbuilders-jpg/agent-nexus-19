@@ -38,7 +38,7 @@ export interface ChatStreamCallbacks {
   onLearnings: (learnings: { facts: string[]; profileUpdates: Record<string, string> }) => void;
   onToolCall: (call: { skill: string; params: Record<string, unknown> }) => void;
   onToolResult: (result: { skill: string; success: boolean; output?: string; error?: string }) => void;
-  onAutoLearned: (count: number) => void;
+  onAutoLearned: (count: number, facts: string[]) => void;
   onPlanStep: (step: { step: number; total: number; description: string; status: string }) => void;
   onComputeRoute: (route: { engine: string; reason: string }) => void;
   onDone: () => void;
