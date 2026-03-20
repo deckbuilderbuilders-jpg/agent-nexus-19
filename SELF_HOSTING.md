@@ -1,4 +1,4 @@
-# Neural Agent v4 — Self-Hosting Guide
+# Nexus v6 — Self-Hosting Guide
 
 ## Architecture
 
@@ -7,8 +7,8 @@ Browser (localhost:8080)
   → Vite dev server (proxies /api → :8000)
     → FastAPI (localhost:8000)
       → Ollama (localhost:11434)
-      → ChromaDB (~/neural-agent/chromadb/)
-      → JSON files (~/neural-agent/*.json)
+      → ChromaDB (~/Nexus/chromadb/)
+      → JSON files (~/Nexus/*.json)
 ```
 
 Nothing leaves your machine. No cloud, no API keys, no external calls.
@@ -78,7 +78,7 @@ The status indicator should show "Connected" (green dot).
 
 ## Data Storage
 
-All data persists in `~/neural-agent/`:
+All data persists in `~/Nexus/`:
 
 | File | Contents |
 |---|---|
@@ -86,13 +86,14 @@ All data persists in `~/neural-agent/`:
 | `profile.json` | User profile |
 | `rules.json` | Behavioral rules |
 | `relationships.json` | Topic spatial relationships |
+| `outputs/` | Files created by the write_file skill |
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `NEURAL_MODEL` | `llama3.1:8b` | Ollama model name |
-| `NEURAL_DATA_DIR` | `~/neural-agent` | Where data is stored |
+| `NEXUS_DATA_DIR` | `~/Nexus` | Where data is stored |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
 
 ## Upgrading to a GPU / Bigger Model
