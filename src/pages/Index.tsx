@@ -1,16 +1,33 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { AppSidebar } from '@/components/AppSidebar';
+import { ChatView } from '@/components/ChatView';
+import { MemoryBrowser } from '@/components/MemoryBrowser';
+import { RulesManager } from '@/components/RulesManager';
+import { ProfileEditor } from '@/components/ProfileEditor';
+import { SkillsOverview } from '@/components/SkillsOverview';
+import { DashboardView } from '@/components/DashboardView';
+import { useAgentStore } from '@/store/agentStore';
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+const VIEWS = {
+  dashboard: DashboardView,
+  chat: ChatView,
+  memory: MemoryBrowser,
+  rules: RulesManager,
+  profile: ProfileEditor,
+  skills: SkillsOverview,
+};
+
+const Index = () => {
+  const activeView = useAgentStore((s) => s.activeView);
+  const ActiveComponent = VIEWS[activeView];
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="flex h-screen overflow-hidden">
+      <AppSidebar />
+      <main className="flex-1 overflow-hidden">
+        <ActiveComponent />
+      </main>
     </div>
   );
 };
-
-const Index = PlaceholderIndex;
 
 export default Index;
