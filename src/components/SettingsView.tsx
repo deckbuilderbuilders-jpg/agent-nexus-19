@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Monitor, Cloud, Zap, Key, Eye, EyeOff, Server, ArrowRight, Check, RefreshCw, Download, Info } from 'lucide-react';
+import { Monitor, Cloud, Zap, Key, Eye, EyeOff, Server, ArrowRight, Check, RefreshCw, Download, Info, Wifi } from 'lucide-react';
 import { useAgentStore, type ComputeMode } from '@/store/agentStore';
 import { checkForUpdates, triggerUpdate } from '@/lib/api';
 
@@ -19,12 +19,46 @@ export function SettingsView() {
   const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testMsg, setTestMsg] = useState('');
 
   const saveRunpodConfig = () => {
     setSaving(true);
     setRunpodConfig({ apiKey: apiKey || null, endpoint: endpoint || null, model: model || null });
     if (apiKey) markComputeSetupComplete();
     setTimeout(() => setSaving(false), 500);
+  };
+
+  const testConnection = async () => {
+    if (!apiKey || !endpoint) {
+      setTestStatus('error');
+      setTestMsg('Enter an API key and endpoint first.');
+      return;
+    }
+    setTestStatus('testing');
+    setTestMsg('');
+    try {
+      const url = endpoint.replace(/\/$/, '') + (endpoint.includes('/chat/completions') ? '' : '/chat/completions');
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: model || 'meta-llama/Meta-Llama-3.1-70B-Instruct',
+          messages: [{ role: 'user', content: 'Say hi' }],
+          max_tokens: 5,
+        }),
+      });
+      if (res.ok) {
+        setTestStatus('success');
+        setTestMsg('Connected successfully!');
+      } else {
+        setTestStatus('error');
+        setTestMsg(`Error ${res.status}: ${res.statusText}`);
+      }
+    } catch (e) {
+      setTestStatus('error');
+      setTestMsg(e instanceof Error ? e.message : 'Connection failed');
+    }
   };
 
   const handleCheckUpdates = async () => {
