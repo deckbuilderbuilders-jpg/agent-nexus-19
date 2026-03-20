@@ -68,6 +68,10 @@ interface AgentState {
   removeMemory: (id: string) => void;
   updateMemoryWeight: (id: string, weight: number) => void;
 
+  // Spatial relationships between topics (set by user dragging bubbles near each other)
+  topicRelationships: { a: string; b: string; strength: number }[];
+  setTopicRelationships: (rels: { a: string; b: string; strength: number }[]) => void;
+
   // Rules
   rules: Rule[];
   addRule: (rule: Omit<Rule, 'id'>) => void;
@@ -142,7 +146,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   removeMemory: (id) => set((s) => ({ memories: s.memories.filter((m) => m.id !== id) })),
   updateMemoryWeight: (id, weight) => set((s) => ({ memories: s.memories.map((m) => m.id === id ? { ...m, weight } : m) })),
 
+  topicRelationships: [],
+  setTopicRelationships: (rels) => set({ topicRelationships: rels }),
+
   rules: DEMO_RULES,
+
   addRule: (rule) => set((s) => ({ rules: [{ ...rule, id: genId() }, ...s.rules] })),
   removeRule: (id) => set((s) => ({ rules: s.rules.filter((r) => r.id !== id) })),
 
