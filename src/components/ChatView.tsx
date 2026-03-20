@@ -73,7 +73,7 @@ export function ChatView() {
           const msgs = [...s.messages];
           const last = msgs[msgs.length - 1];
           if (last?.role === 'assistant') {
-            msgs[msgs.length - 1] = { ...last, content: streamContent.current };
+            msgs[msgs.length - 1] = { ...last, content: stripLearnings(streamContent.current) };
           }
           return { messages: msgs };
         });
