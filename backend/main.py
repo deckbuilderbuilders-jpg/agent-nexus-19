@@ -776,9 +776,9 @@ async def chat(req: ChatRequest):
             )
 
             existing_context = system_prompt[:1000]
-            auto_count = run_silent_learning(req.message, full_response, existing_context)
-            if auto_count > 0:
-                yield f"data: {json.dumps({'auto_learned': auto_count})}\n\n"
+            auto_facts = run_silent_learning(req.message, full_response, existing_context)
+            if auto_facts:
+                yield f"data: {json.dumps({'auto_learned': len(auto_facts), 'auto_learned_facts': auto_facts})}\n\n"
 
             prune_memories()
 

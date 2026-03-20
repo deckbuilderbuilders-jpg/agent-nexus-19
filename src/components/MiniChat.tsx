@@ -97,7 +97,18 @@ export function MiniChat() {
       },
       onToolCall: () => {},
       onToolResult: () => {},
-      onAutoLearned: (count) => setAutoLearnedCount(count),
+      onAutoLearned: (count, facts) => {
+        for (const fact of facts) {
+          useAgentStore.getState().addMemory({
+            text: fact,
+            type: 'fact',
+            weight: 0.8,
+            timestamp: new Date().toISOString(),
+            source: 'auto',
+          });
+        }
+        setAutoLearnedCount(count);
+      },
       onPlanStep: () => {},
       onComputeRoute: () => {},
       onDone: () => setThinking(false),
