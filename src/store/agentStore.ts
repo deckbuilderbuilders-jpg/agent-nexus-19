@@ -68,6 +68,10 @@ interface AgentState {
   removeMemory: (id: string) => void;
   updateMemoryWeight: (id: string, weight: number) => void;
 
+  // Spatial relationships between topics (set by user dragging bubbles near each other)
+  topicRelationships: { a: string; b: string; strength: number }[];
+  setTopicRelationships: (rels: { a: string; b: string; strength: number }[]) => void;
+
   // Rules
   rules: Rule[];
   addRule: (rule: Omit<Rule, 'id'>) => void;
