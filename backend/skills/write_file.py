@@ -5,7 +5,10 @@ Write File skill — writes content to the outputs directory.
 import os
 from pathlib import Path
 
-OUTPUTS_DIR = Path(os.environ.get("NEURAL_DATA_DIR", os.path.expanduser("~/neural-agent"))) / "outputs"
+OUTPUTS_DIR = Path(
+    os.environ.get("NEXUS_DATA_DIR")
+    or os.environ.get("NEURAL_DATA_DIR", os.path.expanduser("~/Nexus"))
+) / "outputs"
 
 SKILL_INFO = {
     "name": "write_file",

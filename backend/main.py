@@ -751,8 +751,17 @@ async def chat(req: ChatRequest):
                             full_response += f"\n[TOOL_RESULT] {skill_name}: {result.get('output', result.get('error', 'No output'))}"
 
             # Post-processing (same for both engines)
-            learnings = extract_learnings(full_response)
-            if learnings:
+            learnings = extract_learnings(full_response) or {"facts": [], "profileUpdates": {}}
+            explicit_updates = extract_explicit_profile_updates(
+                req.message,
+                req.profile or load_json(PROFILE_PATH, {}),
+            )
+            if explicit_updates:
+                learnings["profileUpdates"] = {
+                    **learnings.get("profileUpdates", {}),
+                    **explicit_updates,
+                }
+            if learnings.get("facts") or learnings.get("profileUpdates"):
                 yield f"data: {json.dumps({'learnings': learnings})}\n\n"
 
             deduplicate_and_add(
