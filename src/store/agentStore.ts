@@ -56,6 +56,23 @@ export interface SkillInfo {
   enabled: boolean;
 }
 
+export type ComputeMode = 'local' | 'hybrid' | 'cloud';
+
+export interface ComputeSettings {
+  mode: ComputeMode;
+  runpodApiKey: string | null;
+  runpodEndpoint: string | null;
+  runpodModel: string | null;
+  setupComplete: boolean;
+}
+
+export interface AppVersion {
+  current: string;
+  latest: string | null;
+  updateAvailable: boolean;
+  lastChecked: string | null;
+}
+
 interface AgentState {
   // Chat
   messages: Message[];
@@ -86,21 +103,38 @@ interface AgentState {
   skills: SkillInfo[];
 
   // Active view
-  activeView: 'chat' | 'memory' | 'rules' | 'profile' | 'skills' | 'dashboard';
+  activeView: 'chat' | 'memory' | 'rules' | 'profile' | 'skills' | 'dashboard' | 'settings';
   setActiveView: (v: AgentState['activeView']) => void;
 
-  // Pending learnings (profile updates only — facts auto-commit silently)
+  // Pending learnings
   pendingLearnings: { facts: string[]; profileUpdates: Record<string, string>; } | null;
   setPendingLearnings: (l: AgentState['pendingLearnings']) => void;
   confirmLearnings: () => void;
   dismissLearnings: () => void;
 
-  // Auto-learned fact count (transient indicator)
+  // Auto-learned fact count
   autoLearnedCount: number;
   setAutoLearnedCount: (n: number) => void;
+
+  // Compute settings
+  compute: ComputeSettings;
+  setComputeMode: (mode: ComputeMode) => void;
+  setRunpodConfig: (config: { apiKey?: string; endpoint?: string; model?: string }) => void;
+  markComputeSetupComplete: () => void;
+
+  // Version / updates
+  appVersion: AppVersion;
+  setLatestVersion: (version: string) => void;
+  dismissUpdate: () => void;
+
+  // Mini chat
+  miniChatOpen: boolean;
+  setMiniChatOpen: (v: boolean) => void;
 }
 
 const genId = () => Math.random().toString(36).slice(2, 10);
+
+const APP_VERSION = '6.0.0';
 
 // Demo data
 const DEMO_MEMORIES: Memory[] = [
@@ -119,18 +153,12 @@ const DEMO_RULES: Rule[] = [
 ];
 
 const DEMO_PROFILE: UserProfile = {
-  name: null,
-  role: null,
-  company: null,
-  industry: 'B2B SaaS',
-  company_size: null,
+  name: null, role: null, company: null, industry: 'B2B SaaS', company_size: null,
   icp: 'VP Marketing at mid-market B2B SaaS (50-200 employees)',
   goals: ['Reduce CAC to $35 by Q3', 'Launch partner program'],
   tone_preferences: 'Professional, data-driven, no buzzwords',
-  tools: ['HubSpot', 'LinkedIn Sales Navigator'],
-  competitors: ['Rival Corp'],
-  key_metrics: { CAC: '$47', 'Email open rate': '34%' },
-  notes: [],
+  tools: ['HubSpot', 'LinkedIn Sales Navigator'], competitors: ['Rival Corp'],
+  key_metrics: { CAC: '$47', 'Email open rate': '34%' }, notes: [],
 };
 
 const DEMO_SKILLS: SkillInfo[] = [
@@ -173,13 +201,11 @@ export const useAgentStore = create<AgentState>()(
       confirmLearnings: () => {
         const { pendingLearnings } = get();
         if (!pendingLearnings) return;
-        // Only auto-save profile updates via confirm — facts are auto-committed by backend
         if (Object.keys(pendingLearnings.profileUpdates).length) {
           for (const [k, v] of Object.entries(pendingLearnings.profileUpdates)) {
             get().updateProfile(k, v);
           }
         }
-        // Also save any explicit facts that came through the approval flow
         for (const fact of pendingLearnings.facts) {
           get().addMemory({ text: fact, type: 'fact', weight: 1.5, timestamp: new Date().toISOString(), source: 'conversation' });
         }
@@ -189,16 +215,60 @@ export const useAgentStore = create<AgentState>()(
 
       autoLearnedCount: 0,
       setAutoLearnedCount: (n) => set({ autoLearnedCount: n }),
+
+      // Compute
+      compute: {
+        mode: 'local',
+        runpodApiKey: null,
+        runpodEndpoint: null,
+        runpodModel: null,
+        setupComplete: false,
+      },
+      setComputeMode: (mode) => set((s) => ({ compute: { ...s.compute, mode } })),
+      setRunpodConfig: (config) => set((s) => ({
+        compute: {
+          ...s.compute,
+          ...(config.apiKey !== undefined && { runpodApiKey: config.apiKey }),
+          ...(config.endpoint !== undefined && { runpodEndpoint: config.endpoint }),
+          ...(config.model !== undefined && { runpodModel: config.model }),
+        },
+      })),
+      markComputeSetupComplete: () => set((s) => ({ compute: { ...s.compute, setupComplete: true } })),
+
+      // Version
+      appVersion: {
+        current: APP_VERSION,
+        latest: null,
+        updateAvailable: false,
+        lastChecked: null,
+      },
+      setLatestVersion: (version) => set((s) => ({
+        appVersion: {
+          ...s.appVersion,
+          latest: version,
+          updateAvailable: version !== s.appVersion.current,
+          lastChecked: new Date().toISOString(),
+        },
+      })),
+      dismissUpdate: () => set((s) => ({
+        appVersion: { ...s.appVersion, updateAvailable: false },
+      })),
+
+      // Mini chat
+      miniChatOpen: false,
+      setMiniChatOpen: (v) => set({ miniChatOpen: v }),
     }),
     {
-      name: 'neural-agent-store',
+      name: 'nexus-agent-store',
       partialize: (state) => ({
-        messages: state.messages.slice(-50), // Keep last 50 messages
+        messages: state.messages.slice(-50),
         memories: state.memories,
         rules: state.rules,
         profile: state.profile,
         topicRelationships: state.topicRelationships,
         activeView: state.activeView,
+        compute: state.compute,
+        appVersion: state.appVersion,
       }),
     }
   )

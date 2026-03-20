@@ -1,7 +1,6 @@
 /**
  * API service layer — connects the React frontend to the FastAPI backend.
- * In production (self-hosted), calls localhost:8000.
- * In dev via Lovable preview, falls back to demo mode.
+ * Supports hybrid compute: routes to Ollama (local) or RunPod (cloud).
  */
 
 const API_BASE = '/api';
@@ -28,6 +27,10 @@ export interface ChatRequest {
   rules: string[];
   profile: Record<string, unknown>;
   relationships: { a: string; b: string; strength: number }[];
+  compute_mode?: 'local' | 'hybrid' | 'cloud';
+  runpod_api_key?: string;
+  runpod_endpoint?: string;
+  runpod_model?: string;
 }
 
 export interface ChatStreamCallbacks {
@@ -37,6 +40,7 @@ export interface ChatStreamCallbacks {
   onToolResult: (result: { skill: string; success: boolean; output?: string; error?: string }) => void;
   onAutoLearned: (count: number) => void;
   onPlanStep: (step: { step: number; total: number; description: string; status: string }) => void;
+  onComputeRoute: (route: { engine: string; reason: string }) => void;
   onDone: () => void;
   onError: (error: string) => void;
 }
@@ -79,6 +83,7 @@ export async function streamChat(req: ChatRequest, cb: ChatStreamCallbacks): Pro
           if (evt.tool_result) cb.onToolResult(evt.tool_result);
           if (evt.auto_learned) cb.onAutoLearned(evt.auto_learned);
           if (evt.plan_step) cb.onPlanStep(evt.plan_step);
+          if (evt.compute_route) cb.onComputeRoute(evt.compute_route);
           if (evt.error) cb.onError(evt.error);
         } catch { /* partial JSON, skip */ }
       }
@@ -102,7 +107,7 @@ export async function checkHealth(): Promise<HealthStatus | null> {
   return apiFetch('/health');
 }
 
-// ── Stats (for HUD) ──────────────────────────────────────────
+// ── Stats ────────────────────────────────────────────────────
 
 export interface PerfStatsResponse {
   tps: number;
@@ -110,10 +115,21 @@ export interface PerfStatsResponse {
   model: string;
   generating: boolean;
   token_budget?: Record<string, number>;
+  compute_engine?: string;
 }
 
 export async function fetchStats(): Promise<PerfStatsResponse | null> {
   return apiFetch('/stats');
+}
+
+// ── Version check ────────────────────────────────────────────
+
+export async function checkForUpdates(): Promise<{ version: string; changelog?: string } | null> {
+  return apiFetch('/version/check');
+}
+
+export async function triggerUpdate(): Promise<{ success: boolean; message: string } | null> {
+  return apiFetch('/version/update', { method: 'POST' });
 }
 
 // ── Memory CRUD ──────────────────────────────────────────────
