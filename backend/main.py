@@ -1,6 +1,7 @@
 """
-Neural Agent v5 — FastAPI Backend
-Full rewrite: semantic RAG, memory lifecycle, skill execution, silent learning, inner monologue.
+Nexus v6 — FastAPI Backend
+Hybrid Compute Engine (Ollama + RunPod), semantic RAG, memory lifecycle,
+skill execution, silent learning, inner monologue, auto-updates.
 """
 
 import json
@@ -20,11 +21,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ValidationError
 import chromadb
 import ollama
+import httpx
 
 
 # ── Config ────────────────────────────────────────────────────
 
-DATA_DIR = Path(os.environ.get("NEURAL_DATA_DIR", os.path.expanduser("~/neural-agent")))
+DATA_DIR = Path(os.environ.get("NEXUS_DATA_DIR", os.path.expanduser("~/Nexus")))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUTS_DIR = DATA_DIR / "outputs"
 OUTPUTS_DIR.mkdir(exist_ok=True)
@@ -34,15 +36,19 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 MAX_CONTEXT_TOKENS = int(os.environ.get("NEURAL_MAX_CONTEXT", "8192"))
 MEMORY_CAP = 500
 DECAY_FACTOR = 0.985
-DEDUP_THRESHOLD = 0.15  # cosine distance — lower = more similar
+DEDUP_THRESHOLD = 0.15
 SKILLS_DIR = Path(__file__).parent / "skills"
 
 PROFILE_PATH = DATA_DIR / "profile.json"
 RULES_PATH = DATA_DIR / "rules.json"
 RELATIONSHIPS_PATH = DATA_DIR / "relationships.json"
 
-logger = logging.getLogger("neural-agent")
+APP_VERSION = "6.0.0"
+GITHUB_REPO = "deckbuilderbuilders-jpg/agent-nexus-19"
+
+logger = logging.getLogger("nexus")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
 
 # ── State ─────────────────────────────────────────────────────
 
@@ -54,7 +60,8 @@ class AppState:
     generating: bool = False
     model: str = MODEL
     last_budget: dict = {}
-    skills: dict = {}  # name -> skill module
+    skills: dict = {}
+    compute_engine: str = "ollama"  # track what engine is being used
 
 state = AppState()
 
@@ -62,18 +69,15 @@ state = AppState()
 # ── Token Budget ──────────────────────────────────────────────
 
 def estimate_tokens(text: str) -> int:
-    """Rough estimate: ~4 chars per token for English."""
     return max(1, len(text) // 4)
 
 def truncate_to_budget(text: str, max_tokens: int) -> str:
-    """Truncate text to fit within token budget."""
     max_chars = max_tokens * 4
     if len(text) <= max_chars:
         return text
     return text[:max_chars] + "\n[...truncated]"
 
 def allocate_budget(base_tokens: int = 300) -> dict:
-    """Allocate token budgets for each prompt section."""
     remaining = MAX_CONTEXT_TOKENS - base_tokens
     response_reserve = 1500
     remaining -= response_reserve
@@ -92,7 +96,6 @@ def allocate_budget(base_tokens: int = 300) -> dict:
 # ── Skill Discovery ──────────────────────────────────────────
 
 def discover_skills() -> dict:
-    """Auto-discover skill modules in backend/skills/."""
     skills = {}
     if not SKILLS_DIR.exists():
         return skills
@@ -122,9 +125,8 @@ def save_json(path: Path, data):
     path.write_text(json.dumps(data, indent=2))
 
 def fix_json(text: str) -> str:
-    """Fix common LLM JSON errors."""
-    text = re.sub(r',\s*([}\]])', r'\1', text)  # trailing commas
-    text = text.replace("'", '"')  # single quotes
+    text = re.sub(r',\s*([}\]])', r'\1', text)
+    text = text.replace("'", '"')
     return text
 
 
@@ -135,7 +137,6 @@ class LearningsModel(BaseModel):
     profileUpdates: dict[str, str] = {}
 
 def extract_learnings(text: str) -> Optional[dict]:
-    """Extract [LEARNINGS] JSON from response with multiple fallback patterns."""
     patterns = [
         r'\[LEARNINGS\]\s*```json?\s*(.*?)\s*```',
         r'\[LEARNINGS\]\s*(\{.*?\})',
@@ -158,7 +159,6 @@ def extract_learnings(text: str) -> Optional[dict]:
 # ── Tool Call Extraction ─────────────────────────────────────
 
 def extract_tool_call(text: str) -> Optional[dict]:
-    """Extract [TOOL_CALL] JSON from response."""
     patterns = [
         r'\[TOOL_CALL\]\s*```json?\s*(.*?)\s*```',
         r'\[TOOL_CALL\]\s*(\{.*?\})',
@@ -176,7 +176,6 @@ def extract_tool_call(text: str) -> Optional[dict]:
 # ── Memory Lifecycle ─────────────────────────────────────────
 
 def apply_decay():
-    """Apply weight decay to all memories."""
     try:
         results = state.collection.get(include=["metadatas"])
         if not results["ids"]:
@@ -195,7 +194,6 @@ def apply_decay():
         logger.warning(f"Decay failed: {e}")
 
 def prune_memories():
-    """Enforce memory cap by removing low-weight entries."""
     try:
         count = state.collection.count()
         if count <= MEMORY_CAP:
@@ -203,10 +201,8 @@ def prune_memories():
         results = state.collection.get(include=["metadatas"])
         entries = list(zip(results["ids"], results["metadatas"]))
         entries.sort(key=lambda e: e[1].get("weight", 0))
-        # First pass: remove anything below 0.3
         to_delete = [eid for eid, meta in entries if meta.get("weight", 0) < 0.3]
         if len(to_delete) < count - MEMORY_CAP:
-            # Need to remove more
             remaining_to_cut = count - MEMORY_CAP - len(to_delete)
             remaining = [e for e in entries if e[0] not in set(to_delete)]
             to_delete.extend([eid for eid, _ in remaining[:remaining_to_cut]])
@@ -217,13 +213,11 @@ def prune_memories():
         logger.warning(f"Prune failed: {e}")
 
 def deduplicate_and_add(text: str, meta: dict) -> str:
-    """Add a memory, merging with existing if too similar."""
     try:
         existing = state.collection.query(query_texts=[text], n_results=1, include=["metadatas", "distances"])
         if (existing["distances"] and existing["distances"][0]
                 and existing["distances"][0][0] < DEDUP_THRESHOLD
                 and existing["ids"][0]):
-            # Merge: boost existing weight
             eid = existing["ids"][0][0]
             old_meta = existing["metadatas"][0][0]
             new_weight = min(5.0, old_meta.get("weight", 1.0) + 0.3)
@@ -235,7 +229,6 @@ def deduplicate_and_add(text: str, meta: dict) -> str:
     except Exception:
         pass
 
-    # Add new
     new_id = f"mem_{int(time.time() * 1000)}_{hash(text) % 10000}"
     state.collection.add(
         documents=[text],
@@ -245,14 +238,88 @@ def deduplicate_and_add(text: str, meta: dict) -> str:
     return new_id
 
 
+# ── Hybrid Compute Engine ────────────────────────────────────
+
+def should_use_cloud(message: str, compute_mode: str, history: list) -> tuple[bool, str]:
+    """Decide whether to route to RunPod based on mode and heuristics."""
+    if compute_mode == "local":
+        return False, "User selected local-only mode"
+    if compute_mode == "cloud":
+        return True, "User selected cloud-only mode"
+
+    # Smart hybrid heuristics
+    msg_len = len(message)
+    history_len = len(history)
+
+    # Long/complex messages
+    if msg_len > 800:
+        return True, "Long input — routing to cloud for better context handling"
+
+    # Deep work prefix
+    if message.strip().startswith("/plan") or message.strip().startswith("/deep"):
+        return True, "Deep work mode — routing to cloud"
+
+    # Research-type queries
+    research_keywords = ["analyze", "research", "compare", "explain in detail", "write a report",
+                         "summarize", "deep dive", "comprehensive", "strategy", "roadmap"]
+    if any(kw in message.lower() for kw in research_keywords):
+        return True, "Complex/research request — routing to cloud"
+
+    # Long conversation context
+    if history_len > 12:
+        return True, "Long conversation — routing to cloud for better context"
+
+    # Check if Ollama is responsive
+    try:
+        ollama.list()
+    except Exception:
+        return True, "Ollama unavailable — falling back to cloud"
+
+    return False, "Standard request — using local Ollama"
+
+
+async def stream_from_runpod(messages: list, api_key: str, endpoint: str, model: str):
+    """Stream chat completion from RunPod (OpenAI-compatible API)."""
+    url = endpoint.rstrip("/")
+    if not url.endswith("/chat/completions"):
+        url += "/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model or "meta-llama/Meta-Llama-3.1-70B-Instruct",
+        "messages": messages,
+        "stream": True,
+        "max_tokens": 2000,
+        "temperature": 0.7,
+    }
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        async with client.stream("POST", url, headers=headers, json=payload) as resp:
+            async for line in resp.aiter_lines():
+                if not line or not line.startswith("data: "):
+                    continue
+                data = line[6:]
+                if data == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data)
+                    delta = chunk.get("choices", [{}])[0].get("delta", {})
+                    content = delta.get("content", "")
+                    if content:
+                        yield content
+                except json.JSONDecodeError:
+                    continue
+
+
 # ── Prompt Assembly ──────────────────────────────────────────
 
 def build_system_prompt(req, user_message: str) -> str:
-    """Assemble context-aware system prompt with token budgets."""
     budgets = allocate_budget()
     parts = []
 
-    # Base personality
     base = """You are a personal AI assistant that deeply understands what someone is working on and finds ways to help them succeed.
 
 Your approach:
@@ -270,16 +337,13 @@ When you identify genuinely NEW facts, preferences, or profile updates not alrea
 Only include truly new information. Do not repeat what's already in the context."""
     parts.append(truncate_to_budget(base, budgets["base"]))
 
-    # Profile
     profile = req.profile or load_json(PROFILE_PATH)
     if profile:
         filled = {k: v for k, v in profile.items() if v and (not isinstance(v, (list, dict)) or len(v) > 0)}
         if filled:
             parts.append(truncate_to_budget(f"\n## User Profile\n{json.dumps(filled, indent=2)}", budgets["profile"]))
 
-    # Rules (priority-sorted)
     rules = req.rules or [r["text"] for r in load_json(RULES_PATH, [])]
-    # Add synthetic rules from topic relationships
     rels = req.relationships or load_json(RELATIONSHIPS_PATH, [])
     for rel in rels:
         if rel.get("strength", 0) > 0.6:
@@ -288,10 +352,8 @@ Only include truly new information. Do not repeat what's already in the context.
         rules_text = "\n## Rules (ALWAYS follow these)\n" + "\n".join(f"- {r}" for r in rules)
         parts.append(truncate_to_budget(rules_text, budgets["rules"]))
 
-    # Semantic memory retrieval (RAG)
     memory_parts = []
     try:
-        # Semantic search against current message
         semantic = state.collection.query(
             query_texts=[user_message],
             n_results=15,
@@ -307,7 +369,6 @@ Only include truly new information. Do not repeat what's already in the context.
     except Exception as e:
         logger.warning(f"Semantic retrieval failed: {e}")
 
-    # Also get top 5 by weight globally (pinned context)
     try:
         all_mems = state.collection.get(include=["documents", "metadatas"])
         if all_mems["documents"]:
@@ -326,14 +387,12 @@ Only include truly new information. Do not repeat what's already in the context.
         pass
 
     if memory_parts:
-        # Sort by combined score
         memory_parts.sort(key=lambda m: m["weight"] * 0.4 + m["relevance"] * 0.6, reverse=True)
         mem_text = "\n## Relevant Knowledge"
         for m in memory_parts[:20]:
             mem_text += f"\n- [{m['type']} w:{m['weight']:.1f} r:{m['relevance']:.0%}] {m['text']}"
         parts.append(truncate_to_budget(mem_text, budgets["memories"]))
 
-    # Available skills
     if state.skills:
         enabled = {n: s for n, s in state.skills.items() if s.SKILL_INFO.get("enabled", True)}
         if enabled:
@@ -350,18 +409,14 @@ Only include truly new information. Do not repeat what's already in the context.
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Init ChromaDB
     state.chroma_client = chromadb.PersistentClient(path=str(DATA_DIR / "chromadb"))
     state.collection = state.chroma_client.get_or_create_collection(
         name="agent_memory",
         metadata={"hnsw:space": "cosine"},
     )
-
-    # Discover skills
     state.skills = discover_skills()
     logger.info(f"Discovered {len(state.skills)} skills")
 
-    # Verify Ollama
     try:
         models = ollama.list()
         available = [m.model for m in models.models] if models.models else []
@@ -375,7 +430,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-app = FastAPI(title="Neural Agent v5", lifespan=lifespan)
+app = FastAPI(title="Nexus v6", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -394,6 +449,10 @@ class ChatRequest(BaseModel):
     rules: list[str] = []
     profile: dict = {}
     relationships: list[dict] = []
+    compute_mode: str = "local"
+    runpod_api_key: Optional[str] = None
+    runpod_endpoint: Optional[str] = None
+    runpod_model: Optional[str] = None
 
 class MemorySyncRequest(BaseModel):
     memories: list[dict]
@@ -411,7 +470,6 @@ class SkillToggleRequest(BaseModel):
 # ── Inner Monologue ──────────────────────────────────────────
 
 def run_inner_monologue(system_prompt: str, user_message: str, history: list[dict]) -> Optional[str]:
-    """Fast planning step before the main response."""
     try:
         plan_prompt = f"""You are an internal planning module. Given the context and user message, think briefly about the best approach.
 Consider: Should I use any available skills? What memories are most relevant? What's the user really asking for?
@@ -435,7 +493,6 @@ User message: {user_message}"""
 # ── Silent Learning ──────────────────────────────────────────
 
 def run_silent_learning(user_message: str, assistant_response: str, existing_context: str) -> int:
-    """Background extraction of facts — auto-committed at low weight."""
     try:
         prompt = f"""Extract any NEW facts about the user, their business, preferences, workflows, or goals from this conversation that are NOT already known.
 
@@ -457,13 +514,12 @@ Return ONLY the JSON array, nothing else."""
         )
         content = response.get("message", {}).get("content", "").strip()
 
-        # Parse the array
         match = re.search(r'\[.*\]', content, re.DOTALL)
         if match:
             facts = json.loads(fix_json(match.group(0)))
             if isinstance(facts, list) and facts:
                 count = 0
-                for fact in facts[:5]:  # Max 5 auto-facts per conversation
+                for fact in facts[:5]:
                     if isinstance(fact, str) and len(fact) > 10:
                         deduplicate_and_add(fact, {
                             "type": "fact",
@@ -481,14 +537,11 @@ Return ONLY the JSON array, nothing else."""
 # ── Skill Execution ──────────────────────────────────────────
 
 def execute_skill(name: str, params: dict) -> dict:
-    """Execute a skill with timeout and error handling."""
     if name not in state.skills:
         return {"success": False, "error": f"Skill '{name}' not found"}
-
     mod = state.skills[name]
     if not mod.SKILL_INFO.get("enabled", True):
         return {"success": False, "error": f"Skill '{name}' is disabled"}
-
     try:
         result = mod.run(params)
         return {"success": True, "output": str(result)[:2000]}
@@ -523,6 +576,7 @@ async def stats():
         "generating": state.generating,
         "token_budget": state.last_budget,
         "memory_count": state.collection.count(),
+        "compute_engine": state.compute_engine,
     }
 
 @app.get("/api/skills")
@@ -545,12 +599,24 @@ async def toggle_skill(name: str, req: SkillToggleRequest):
     return {"ok": False, "error": "Skill not found"}
 
 
+# ── Chat with Hybrid Compute ─────────────────────────────────
+
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     system_prompt = build_system_prompt(req, req.message)
-
-    # Apply memory decay on each conversation
     apply_decay()
+
+    # Decide compute route
+    use_cloud, route_reason = should_use_cloud(req.message, req.compute_mode, req.history)
+    has_runpod = bool(req.runpod_api_key and req.runpod_endpoint)
+
+    # Fall back to local if no RunPod config
+    if use_cloud and not has_runpod:
+        use_cloud = False
+        route_reason = "Cloud requested but RunPod not configured — using local"
+
+    engine = "runpod" if use_cloud else "ollama"
+    state.compute_engine = engine
 
     async def generate():
         state.generating = True
@@ -559,17 +625,22 @@ async def chat(req: ChatRequest):
         start_time = time.time()
 
         try:
-            # Inner monologue (planning step)
-            approach = run_inner_monologue(system_prompt, req.message, req.history)
-            if approach:
-                yield f"data: {json.dumps({'plan_step': {'step': 0, 'total': 1, 'description': 'Planning approach...', 'status': 'done'}})}\n\n"
+            # Emit compute route info
+            yield f"data: {json.dumps({'compute_route': {'engine': engine, 'reason': route_reason}})}\n\n"
 
-            # Build messages array with history
+            # Inner monologue (local only — fast planning)
+            if not use_cloud:
+                approach = run_inner_monologue(system_prompt, req.message, req.history)
+                if approach:
+                    yield f"data: {json.dumps({'plan_step': {'step': 0, 'total': 1, 'description': 'Planning approach...', 'status': 'done'}})}\n\n"
+            else:
+                approach = None
+
+            # Build messages array
             messages = [{"role": "system", "content": system_prompt}]
             if approach:
                 messages.append({"role": "system", "content": f"[APPROACH] {approach}"})
 
-            # Add conversation history (budgeted)
             budgets = allocate_budget()
             history_budget = budgets["history"]
             history_tokens = 0
@@ -583,19 +654,14 @@ async def chat(req: ChatRequest):
 
             for msg in trimmed_history:
                 messages.append({"role": msg["role"], "content": msg["content"]})
-
             messages.append({"role": "user", "content": req.message})
 
-            # Stream response
-            stream = ollama.chat(
-                model=state.model,
-                messages=messages,
-                stream=True,
-            )
-
-            for chunk in stream:
-                content = chunk.get("message", {}).get("content", "")
-                if content:
+            # ── Stream from chosen engine ──
+            if use_cloud:
+                # RunPod (OpenAI-compatible)
+                async for content in stream_from_runpod(
+                    messages, req.runpod_api_key, req.runpod_endpoint, req.runpod_model or ""
+                ):
                     full_response += content
                     token_count += 1
                     elapsed = time.time() - start_time
@@ -603,27 +669,45 @@ async def chat(req: ChatRequest):
                     state.total_tokens += 1
                     yield f"data: {json.dumps({'token': content})}\n\n"
 
-                    # Check for tool call mid-stream
                     tool_call = extract_tool_call(full_response)
                     if tool_call and tool_call.get("skill"):
                         skill_name = tool_call["skill"]
                         params = tool_call.get("params", {})
                         yield f"data: {json.dumps({'tool_call': {'skill': skill_name, 'params': params}})}\n\n"
-
-                        # Execute skill
                         result = execute_skill(skill_name, params)
                         yield f"data: {json.dumps({'tool_result': {'skill': skill_name, **result}})}\n\n"
+                        full_response += f"\n[TOOL_RESULT] {skill_name}: {result.get('output', result.get('error', 'No output'))}"
+            else:
+                # Ollama (local)
+                stream = ollama.chat(
+                    model=state.model,
+                    messages=messages,
+                    stream=True,
+                )
+                for chunk in stream:
+                    content = chunk.get("message", {}).get("content", "")
+                    if content:
+                        full_response += content
+                        token_count += 1
+                        elapsed = time.time() - start_time
+                        state.tps = token_count / elapsed if elapsed > 0 else 0
+                        state.total_tokens += 1
+                        yield f"data: {json.dumps({'token': content})}\n\n"
 
-                        # Inject result and continue
-                        tool_result_text = f"\n[TOOL_RESULT] {skill_name}: {result.get('output', result.get('error', 'No output'))}"
-                        full_response += tool_result_text
+                        tool_call = extract_tool_call(full_response)
+                        if tool_call and tool_call.get("skill"):
+                            skill_name = tool_call["skill"]
+                            params = tool_call.get("params", {})
+                            yield f"data: {json.dumps({'tool_call': {'skill': skill_name, 'params': params}})}\n\n"
+                            result = execute_skill(skill_name, params)
+                            yield f"data: {json.dumps({'tool_result': {'skill': skill_name, **result}})}\n\n"
+                            full_response += f"\n[TOOL_RESULT] {skill_name}: {result.get('output', result.get('error', 'No output'))}"
 
-            # Check for learnings in the response
+            # Post-processing (same for both engines)
             learnings = extract_learnings(full_response)
             if learnings:
                 yield f"data: {json.dumps({'learnings': learnings})}\n\n"
 
-            # Store episode in ChromaDB
             deduplicate_and_add(
                 f"User asked: {req.message}\nAgent replied: {full_response[:500]}",
                 {
@@ -634,13 +718,11 @@ async def chat(req: ChatRequest):
                 },
             )
 
-            # Silent background learning
             existing_context = system_prompt[:1000]
             auto_count = run_silent_learning(req.message, full_response, existing_context)
             if auto_count > 0:
                 yield f"data: {json.dumps({'auto_learned': auto_count})}\n\n"
 
-            # Prune if over cap
             prune_memories()
 
         except Exception as e:
@@ -705,3 +787,60 @@ async def sync_profile(profile: dict):
 async def sync_relationships(req: RelationshipsSyncRequest):
     save_json(RELATIONSHIPS_PATH, req.relationships)
     return {"synced": len(req.relationships)}
+
+
+# ── Version Check & Update ────────────────────────────────────
+
+@app.get("/api/version/check")
+async def version_check():
+    """Check GitHub for the latest release version."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+                headers={"Accept": "application/vnd.github.v3+json"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                latest = data.get("tag_name", "").lstrip("v")
+                return {
+                    "version": latest or APP_VERSION,
+                    "changelog": data.get("body", ""),
+                    "current": APP_VERSION,
+                }
+    except Exception as e:
+        logger.warning(f"Version check failed: {e}")
+    return {"version": APP_VERSION, "current": APP_VERSION}
+
+
+@app.post("/api/version/update")
+async def version_update():
+    """Pull latest code from GitHub and signal restart."""
+    try:
+        project_dir = Path(__file__).parent.parent
+        result = subprocess.run(
+            ["git", "pull", "origin", "main"],
+            cwd=str(project_dir),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            # Reinstall backend deps
+            subprocess.run(
+                ["pip", "install", "-r", "requirements.txt"],
+                cwd=str(project_dir / "backend"),
+                capture_output=True,
+                timeout=60,
+            )
+            return {
+                "success": True,
+                "message": f"Updated successfully. Restart Nexus to use the new version.\n\n{result.stdout}",
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Git pull failed: {result.stderr}",
+            }
+    except Exception as e:
+        return {"success": False, "message": str(e)}
