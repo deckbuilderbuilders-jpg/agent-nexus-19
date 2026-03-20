@@ -191,14 +191,27 @@ export function SettingsView() {
                 />
               </div>
 
-              <button
-                onClick={saveRunpodConfig}
-                disabled={saving}
-                className="self-start flex items-center gap-1.5 px-3 py-1.5 text-[10px] rounded-md bg-primary text-primary-foreground font-semibold hover:brightness-105 active:scale-[0.97] transition-all disabled:opacity-50"
-              >
-                {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                {saving ? 'Saving...' : 'Save Configuration'}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={saveRunpodConfig}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] rounded-md bg-primary text-primary-foreground font-semibold hover:brightness-105 active:scale-[0.97] transition-all disabled:opacity-50"
+                >
+                  {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  {saving ? 'Saving...' : 'Save Configuration'}
+                </button>
+                <button
+                  onClick={testConnection}
+                  disabled={testStatus === 'testing'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] rounded-md border border-border text-muted-foreground hover:text-foreground active:scale-[0.97] transition-all disabled:opacity-50"
+                >
+                  {testStatus === 'testing' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Wifi className="w-3 h-3" />}
+                  Test Connection
+                </button>
+                {testMsg && (
+                  <span className={`text-[9px] ${testStatus === 'success' ? 'text-primary' : 'text-destructive'}`}>{testMsg}</span>
+                )}
+              </div>
             </div>
           </section>
         )}
