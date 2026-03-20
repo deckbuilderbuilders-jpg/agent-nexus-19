@@ -433,7 +433,7 @@ Only include truly new information. Do not repeat what's already in the context.
     if state.skills:
         enabled = {n: s for n, s in state.skills.items() if s.SKILL_INFO.get("enabled", True)}
         if enabled:
-            skills_text = "\n## Available Skills\nYou can call skills by outputting:\n[TOOL_CALL]\n```json\n{\"skill\": \"skill_name\", \"params\": {\"param\": \"value\"}}\n```\n\nAvailable skills:"
+            skills_text = "\n## Available Skills\nIMPORTANT: When a user asks you to search, write a file, or read a file, you MUST call the skill. Do not just describe what you would do — actually call it.\n\nTo call a skill, output EXACTLY this format (no deviations):\n[TOOL_CALL]\n```json\n{\"skill\": \"SKILL_NAME_HERE\", \"params\": {\"PARAM_NAME\": \"PARAM_VALUE\"}}\n```\n\nRules:\n- Output the [TOOL_CALL] block BEFORE your written response about the results\n- Use the exact skill name and parameter names listed below\n- Always include the ```json wrapper\n\nAvailable skills:"
             for name, mod in enabled.items():
                 info = mod.SKILL_INFO
                 skills_text += f"\n- **{name}**: {info['description']} — params: {json.dumps(info.get('schema', {}))}"

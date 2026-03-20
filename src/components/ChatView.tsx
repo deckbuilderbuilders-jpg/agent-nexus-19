@@ -121,8 +121,22 @@ export function ChatView() {
       },
       onLearnings: (learnings) => {
         const hasProfileUpdates = Object.keys(learnings.profileUpdates).length > 0;
-        if (hasProfileUpdates) setPendingLearnings(learnings);
-        else if (learnings.facts.length > 0) setAutoLearnedCount(learnings.facts.length);
+        if (hasProfileUpdates) {
+          // Show approval card for profile changes (facts included)
+          setPendingLearnings(learnings);
+        } else if (learnings.facts.length > 0) {
+          // Auto-save fact-only learnings directly to the store
+          for (const fact of learnings.facts) {
+            useAgentStore.getState().addMemory({
+              text: fact,
+              type: 'fact',
+              weight: 1.5,
+              timestamp: new Date().toISOString(),
+              source: 'conversation',
+            });
+          }
+          setAutoLearnedCount(learnings.facts.length);
+        }
       },
       onToolCall: (call) => setToolCalls(prev => [...prev, { skill: call.skill, params: call.params, status: 'running' }]),
       onToolResult: (result) => {
